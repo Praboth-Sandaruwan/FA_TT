@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "app2"
+version = "0.1.0"
+description = "Placeholder FastAPI application 2"
+authors = ["Example <dev@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.111.0"
+uvicorn = { extras = ["standard"], version = "^0.30.0" }
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.20.0"
+
+[build-system]
+requires = ["poetry-core>=1.7.0"]
+build-backend = "poetry.core.masonry.api"

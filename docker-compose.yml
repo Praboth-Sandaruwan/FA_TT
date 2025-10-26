@@ -1,0 +1,160 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-app}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-app}
+      - POSTGRES_DB=${POSTGRES_DB:-app_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks: [stack]
+
+  mongodb:
+    image: mongo:7
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_mongodb
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-app}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-app}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --username \"$${MONGO_INITDB_ROOT_USERNAME}\" --password \"$${MONGO_INITDB_ROOT_PASSWORD}\" --authenticationDatabase admin --eval \"db.adminCommand({ ping: 1 })\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    networks: [stack]
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_redis
+    command: ["sh", "-c", "redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-app}"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-app} ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks: [stack]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:-app}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:-app}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+    
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks: [stack]
+
+  app1:
+    build:
+      context: .
+      dockerfile: docker/app1.Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_app1
+    ports:
+      - "${APP1_PORT:-8000}:8000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-app_db}
+      - POSTGRES_USER=${POSTGRES_USER:-app}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-app}
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=${MONGO_PORT:-27017}
+      - MONGO_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-app}
+      - MONGO_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-app}
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-app}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:-app}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS:-app}
+    volumes:
+      - ./apps/app1:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [stack]
+
+  app2:
+    build:
+      context: .
+      dockerfile: docker/app2.Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_app2
+    ports:
+      - "${APP2_PORT:-8001}:8001"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-app_db}
+      - POSTGRES_USER=${POSTGRES_USER:-app}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-app}
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=${MONGO_PORT:-27017}
+      - MONGO_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-app}
+      - MONGO_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-app}
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-app}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:-app}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS:-app}
+    volumes:
+      - ./apps/app2:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [stack]
+
+networks:
+  stack:
+    name: ${COMPOSE_PROJECT_NAME:-devstack}_net
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
