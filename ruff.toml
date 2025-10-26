@@ -1,0 +1,14 @@
+line-length = 88
+target-version = "py312"
+src = ["src", "tests"]
+
+[lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+]
+fixable = ["ALL"]
