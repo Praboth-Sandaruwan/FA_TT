@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Literal, Sequence
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 try:
@@ -30,6 +30,37 @@ def _resolve_project_dirs() -> tuple[Path, Path]:
 
 PROJECT_DIR, REPOSITORY_ROOT = _resolve_project_dirs()
 
+EnvironmentName = Literal["development", "test", "ci"]
+
+_ENVIRONMENT_ALIASES: dict[str, EnvironmentName] = {
+    "development": "development",
+    "dev": "development",
+    "test": "test",
+    "testing": "test",
+    "ci": "ci",
+}
+
+_ENVIRONMENT_PROFILES: dict[EnvironmentName, dict[str, Any]] = {
+    "development": {
+        "log_level": "DEBUG",
+        "reload": True,
+        "cache_enabled": True,
+        "db_echo": False,
+    },
+    "test": {
+        "log_level": "WARNING",
+        "reload": False,
+        "cache_enabled": False,
+        "db_echo": False,
+    },
+    "ci": {
+        "log_level": "INFO",
+        "reload": False,
+        "cache_enabled": True,
+        "db_echo": False,
+    },
+}
+
 
 class Settings(BaseSettings):
     """Runtime configuration for the intermediate FastAPI application."""
@@ -42,7 +73,7 @@ class Settings(BaseSettings):
     )
 
     project_name: str = "Intermediate FastAPI"
-    environment: str = Field(default="development", alias="ENVIRONMENT")
+    environment: EnvironmentName = Field(default="development", alias="ENVIRONMENT")
     api_prefix: str = Field(default="/api", alias="API_PREFIX")
     version: str = Field(default=package_version, alias="VERSION")
     database_url: str = Field(
@@ -94,6 +125,20 @@ class Settings(BaseSettings):
     session_max_age: int | None = Field(default=60 * 60 * 24 * 14, alias="SESSION_MAX_AGE")
     session_https_only: bool = Field(default=True, alias="SESSION_HTTPS_ONLY")
     session_same_site: str = Field(default="lax", alias="SESSION_SAME_SITE")
+
+    @field_validator("environment", mode="before")
+    @classmethod
+    def _normalise_environment(cls, value: object) -> EnvironmentName:
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+        else:
+            normalized = ""
+        if not normalized:
+            normalized = "development"
+        mapped = _ENVIRONMENT_ALIASES.get(normalized)
+        if mapped is not None:
+            return mapped
+        return "development"
 
     @field_validator("cache_default_ttl_seconds", mode="before")
     @classmethod
@@ -154,6 +199,15 @@ class Settings(BaseSettings):
         if not isinstance(value, str):
             return "INFO"
         return value.upper()
+
+    @model_validator(mode="after")
+    def _apply_environment_profile(self) -> "Settings":
+        profile = _ENVIRONMENT_PROFILES[self.environment]
+        fields_set = set(getattr(self, "model_fields_set", set()))
+        for field_name, value in profile.items():
+            if field_name not in fields_set:
+                setattr(self, field_name, value)
+        return self
 
     @field_validator("session_same_site", mode="before")
     @classmethod
