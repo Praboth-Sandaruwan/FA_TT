@@ -39,6 +39,7 @@ ruff = "^0.7.1"
 beginner-app = "projects.01-beginner.app.main:run"
 intermediate-app = "projects.02-intermediate.app.main:run"
 intermediate-worker = "projects.02-intermediate.app.worker:run"
+advanced-app = "projects.03-advanced.app.main:run"
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]
@@ -49,6 +50,7 @@ branch = true
 source = [
     "src/projects/01-beginner/app",
     "src/projects/02-intermediate/app",
+    "src/projects/03-advanced/app",
 ]
 
 [tool.coverage.report]
