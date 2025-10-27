@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends
 from pydantic import Field, field_validator
@@ -20,6 +20,17 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8004
     reload: bool = True
+
+    telemetry_enabled: bool = True
+    telemetry_service_name: str = "advanced-realtime"
+    otel_exporter_otlp_endpoint: str | None = None
+    otel_exporter_otlp_headers: dict[str, str] = Field(default_factory=dict)
+    metrics_path: str = "/metrics"
+
+    rate_limit_default: str = "120/minute"
+    rate_limit_storage_uri: str = "memory://"
+    rate_limit_headers_enabled: bool = True
+    activity_stream_rate_limit: str | None = "30/minute"
 
     realtime_token: str = "change-me-realtime"
     redis_url: str = "redis://localhost:6379/2"
@@ -63,6 +74,38 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             origins = [item.strip() for item in value.split(",") if item.strip()]
             return origins or ["*"]
+        return value
+
+    @field_validator("metrics_path")
+    @classmethod
+    def _normalise_metrics_path(cls, value: str) -> str:
+        candidate = value.strip() or "/metrics"
+        if not candidate.startswith("/"):
+            candidate = f"/{candidate}"
+        return candidate
+
+    @field_validator("otel_exporter_otlp_headers", mode="before")
+    @classmethod
+    def _parse_otlp_headers(cls, value: Any) -> dict[str, str]:
+        if isinstance(value, dict):
+            return {str(key): str(val) for key, val in value.items()}
+        if isinstance(value, str):
+            headers: dict[str, str] = {}
+            for item in value.split(","):
+                if not item.strip():
+                    continue
+                if "=" not in item:
+                    continue
+                key, header_value = item.split("=", 1)
+                headers[key.strip()] = header_value.strip()
+            return headers
+        return {}
+
+    @field_validator("activity_stream_rate_limit", mode="before")
+    @classmethod
+    def _normalise_activity_limit(cls, value: str | None) -> str | None:
+        if isinstance(value, str) and not value.strip():
+            return None
         return value
 
 

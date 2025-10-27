@@ -21,6 +21,9 @@ def configure_environment(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("ADVANCED_ALLOWED_ORIGINS", "http://localhost")
     monkeypatch.setenv("ADVANCED_WEBSOCKET_MAX_CONNECTIONS", "10")
     monkeypatch.setenv("ADVANCED_EVENT_TRANSPORT", "memory")
+    monkeypatch.setenv("ADVANCED_RATE_LIMIT_DEFAULT", "1000/minute")
+    monkeypatch.setenv("ADVANCED_ACTIVITY_STREAM_RATE_LIMIT", "")
+    monkeypatch.setenv("ADVANCED_TELEMETRY_ENABLED", "false")
     get_settings.cache_clear()
     asyncio.run(broker.reset())
     try:

@@ -287,6 +287,15 @@ services:
       - ADVANCED_RABBITMQ_RETRY_DELAY_MS=${ADVANCED_RABBITMQ_RETRY_DELAY_MS:-5000}
       - ADVANCED_RABBITMQ_MAX_RETRIES=${ADVANCED_RABBITMQ_MAX_RETRIES:-5}
       - ADVANCED_RABBITMQ_PREFETCH_COUNT=${ADVANCED_RABBITMQ_PREFETCH_COUNT:-16}
+      - ADVANCED_TELEMETRY_ENABLED=${ADVANCED_TELEMETRY_ENABLED:-true}
+      - ADVANCED_TELEMETRY_SERVICE_NAME=${ADVANCED_TELEMETRY_SERVICE_NAME:-advanced-realtime}
+      - ADVANCED_OTEL_EXPORTER_OTLP_ENDPOINT=${ADVANCED_OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318/v1/traces}
+      - ADVANCED_OTEL_EXPORTER_OTLP_HEADERS=${ADVANCED_OTEL_EXPORTER_OTLP_HEADERS:-}
+      - ADVANCED_METRICS_PATH=${ADVANCED_METRICS_PATH:-/metrics}
+      - ADVANCED_RATE_LIMIT_DEFAULT=${ADVANCED_RATE_LIMIT_DEFAULT:-120/minute}
+      - ADVANCED_RATE_LIMIT_STORAGE_URI=${ADVANCED_RATE_LIMIT_STORAGE_URI:-memory://}
+      - ADVANCED_RATE_LIMIT_HEADERS_ENABLED=${ADVANCED_RATE_LIMIT_HEADERS_ENABLED:-true}
+      - ADVANCED_ACTIVITY_STREAM_RATE_LIMIT=${ADVANCED_ACTIVITY_STREAM_RATE_LIMIT:-30/minute}
     volumes:
       - ./src:/srv/app/src
       - ./projects/03-advanced:/srv/app/projects/03-advanced
@@ -329,6 +338,47 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    networks: [stack]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"
+      - "${JAEGER_OTLP_PORT:-4318}:4318"
+    networks: [stack]
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      advanced-app:
+        condition: service_started
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    networks: [stack]
+
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_DISABLE_GRAVATAR=true
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
     networks: [stack]
 
   rq-dashboard:

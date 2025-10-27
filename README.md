@@ -81,6 +81,32 @@ This repository includes a dockerized development stack orchestrating Postgres, 
 
 Connection URIs are provided in .env.example for convenience.
 
+### Observability & monitoring
+
+The advanced realtime service exposes OpenTelemetry-powered traces and Prometheus metrics.
+
+- Health probe: `GET http://localhost:8004/healthz`
+- Readiness probe: `GET http://localhost:8004/readyz`
+- Metrics endpoint: `GET http://localhost:8004/metrics`
+- Rate limiting is enabled by default (`ADVANCED_RATE_LIMIT_DEFAULT`) and returns `429` with
+  a JSON body when the limit is exceeded.
+
+A monitoring stack is available via Docker Compose:
+
+```bash
+docker compose up -d advanced-app jaeger prometheus grafana
+```
+
+Services provided:
+
+- **Jaeger** (traces): http://localhost:16686
+- **Prometheus** (metrics explorer): http://localhost:9090
+- **Grafana** (dashboards): http://localhost:3001 (default credentials `admin` / `admin`)
+
+Grafana automatically provisions an "Advanced Realtime Observability" dashboard with panels
+for HTTP traffic, board event throughput, and rate-limit rejections. Prometheus is configured
+to scrape the `/metrics` endpoint exposed by `advanced-app`.
+
 ### Development workflow
 
 - Hot reload is enabled for the FastAPI apps via uvicorn --reload.
