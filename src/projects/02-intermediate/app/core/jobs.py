@@ -6,7 +6,7 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from threading import Lock
-from typing import TypeVar
+from typing import Any, TypeVar
 from uuid import uuid4
 
 from redis import Redis
@@ -15,6 +15,7 @@ from rq import Queue
 from rq.job import Job, Retry
 
 from .config import get_settings
+from .context import get_request_id
 
 logger = logging.getLogger("projects.02-intermediate.app.core.jobs")
 
@@ -131,28 +132,52 @@ def enqueue_task_report(owner_id: int, *, request_id: str | None = None) -> Job:
 
     queue = _resolve_job_queue()
     settings = get_settings()
-    job_id = request_id or f"task-report:{owner_id}:{uuid4()}"
+
+    correlation_candidate = request_id or get_request_id()
+    correlation_id: str | None
+    if isinstance(correlation_candidate, str):
+        normalized = correlation_candidate.strip()
+        correlation_id = normalized if normalized and normalized != "-" else None
+    else:  # pragma: no cover - defensive
+        correlation_id = None
+
+    job_id = correlation_id or f"task-report:{owner_id}:{uuid4()}"
     retry: Retry | None = None
     if settings.job_max_retries > 0:
         intervals = settings.job_retry_backoff_seconds or [0]
         retry = Retry(max=settings.job_max_retries, interval=intervals)
     result_ttl = settings.job_result_ttl_seconds or None
     timeout = settings.job_default_timeout or None
+
+    enqueue_options: dict[str, Any] = {
+        "job_id": job_id,
+        "result_ttl": result_ttl,
+        "failure_ttl": result_ttl,
+        "description": f"Generate task report for owner {owner_id}",
+        "timeout": timeout,
+    }
+    if retry is not None:
+        enqueue_options["retry"] = retry
+    if correlation_id is not None:
+        enqueue_options["meta"] = {"request_id": correlation_id}
+        enqueue_options["request_id"] = correlation_id
+
     try:
         job = queue.enqueue(
             generate_task_report_job,
             owner_id,
-            job_id=job_id,
-            retry=retry,
-            result_ttl=result_ttl,
-            failure_ttl=result_ttl,
-            description=f"Generate task report for owner {owner_id}",
-            timeout=timeout,
+            **enqueue_options,
         )
     except RedisError as exc:  # pragma: no cover - network failures
         logger.error("Failed to enqueue task report job for owner %s", owner_id, exc_info=True)
         raise JobQueueUnavailableError("Unable to enqueue job; Redis is unavailable.") from exc
-    logger.info("Enqueued task report job %s for owner %s", job.id, owner_id)
+
+    logger.info(
+        "Enqueued task report job %s for owner %s",
+        job.id,
+        owner_id,
+        extra={"job_id": job.id, "owner_id": owner_id, "queue": queue.name},
+    )
     return job
 
 

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import io
+import json
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -18,6 +21,8 @@ from projects.02-intermediate.app.core.jobs import (
     set_job_session_factory,
 )
 from projects.02-intermediate.app.core.config import get_settings
+from projects.02-intermediate.app.core.context import bind_request_id, reset_request_id
+from projects.02-intermediate.app.core.logging import configure_logging
 from projects.02-intermediate.app.db.base import SQLModel
 from projects.02-intermediate.app.models import TaskStatus, User, UserRole
 from projects.02-intermediate.app.repositories import TaskReportRepository
@@ -89,6 +94,55 @@ async def _create_tasks(session: AsyncSession, owner_id: int) -> None:
     service = TaskService(session)
     await service.create_task(owner_id=owner_id, title="Alpha", status=TaskStatus.PENDING)
     await service.create_task(owner_id=owner_id, title="Beta", status=TaskStatus.COMPLETED)
+
+
+async def test_enqueue_task_report_propagates_request_id(
+    session: AsyncSession, user: User
+) -> None:
+    settings = get_settings()
+    configure_logging(settings)
+
+    root_logger = logging.getLogger()
+    handler = next(
+        (h for h in root_logger.handlers if isinstance(h, logging.StreamHandler)),
+        None,
+    )
+    assert handler is not None
+
+    buffer = io.StringIO()
+    previous_stream = handler.setStream(buffer)
+
+    assert user.id is not None
+    token = bind_request_id("req-queue-1")
+    try:
+        job = enqueue_task_report(owner_id=user.id)
+        assert job.meta.get("request_id") == "req-queue-1"
+        assert job.kwargs.get("request_id") == "req-queue-1"
+
+        worker = SimpleWorker([get_job_queue()], connection=get_job_connection())
+        worker.work(burst=True, with_scheduler=True)
+    finally:
+        handler.flush()
+        reset_request_id(token)
+        handler.setStream(previous_stream)
+
+    log_entries = [
+        json.loads(line)
+        for line in buffer.getvalue().splitlines()
+        if line.strip().startswith("{")
+    ]
+    queue_log = next(
+        entry
+        for entry in log_entries
+        if entry.get("message", "").startswith("Enqueued task report job")
+    )
+    job_log = next(
+        entry
+        for entry in log_entries
+        if entry.get("message", "").startswith("Generated task report")
+    )
+    assert queue_log["request_id"] == "req-queue-1"
+    assert job_log["request_id"] == "req-queue-1"
 
 
 async def test_task_report_job_generates_summary(session: AsyncSession, user: User) -> None:

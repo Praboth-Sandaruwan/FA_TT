@@ -120,3 +120,21 @@ endpoints such as task listings and statistics. Caching can be toggled with the
 `INTERMEDIATE_CACHE_TTL_SECONDS`. The application logs cache hits, misses, and invalidations and
 exposes in-memory metrics for instrumentation and tests. All task mutations automatically invalidate
 related cache entries to ensure clients always receive fresh data.
+
+## Intermediate app logging and environment profiles
+
+Structured JSON logging is enabled across the intermediate API and its background worker. Every log
+line includes consistent keys such as `timestamp`, `level`, `logger`, `message`, `service`,
+`environment`, and `request_id`. Request correlation identifiers are sourced from the
+`X-Request-ID` header when present, applied via middleware, and automatically propagated to
+background jobs so queue processing events keep the same correlation id.
+
+Configuration is managed by Pydantic settings with dedicated profiles:
+
+- **development** – debug logging and hot reload enabled.
+- **test** – warnings-and-above logging, cache disabled by default, reload off.
+- **ci** – info-level logging optimised for non-interactive runtimes.
+
+Explicit environment variables (e.g. `INTERMEDIATE_LOG_LEVEL`, `INTERMEDIATE_CACHE_ENABLED`) always
+override the profile defaults. Use `INTERMEDIATE_ENVIRONMENT` to switch between profiles for local
+development, automated tests, and CI pipelines.
