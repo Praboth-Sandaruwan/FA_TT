@@ -48,20 +48,26 @@ class ActivityEvent(BaseModel):
     active_connections: int = 0
 
 
-def build_activity_event(board_id: str, message: BoardMessage) -> ActivityEvent:
+def build_activity_event(
+    board_id: str,
+    message: BoardMessage,
+    *,
+    event_id: str | None = None,
+    correlation_id: str | None = None,
+) -> ActivityEvent:
     """Create a canonical activity event from a client message."""
 
     payload = dict(message.payload)
     if message.message and "message" not in payload:
         payload["message"] = message.message
     return ActivityEvent(
-        id=str(uuid4()),
+        id=event_id or str(uuid4()),
         board=board_id,
         action=message.action,
         user=message.user,
         payload=payload,
         timestamp=datetime.now(timezone.utc),
-        correlation_id=message.correlation_id,
+        correlation_id=correlation_id or message.correlation_id,
     )
 
 

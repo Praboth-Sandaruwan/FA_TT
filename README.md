@@ -39,6 +39,7 @@ All tooling is configured via the committed configuration files in the project r
 - Start new project docs from the shared [template](docs/template.md) so structure remains consistent across the repository.
 - Store diagrams, media, and their source files under [`docs/diagrams`](docs/diagrams/README.md) for easy reuse.
 - Review the [contribution guidelines](CONTRIBUTING.md) for branching, testing, and PR expectations.
+- Advanced realtime messaging topology: [docs/advanced_messaging_bus.md](docs/advanced_messaging_bus.md).
 
 ---
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from pathlib import Path
 from typing import Annotated, AsyncIterator
 
@@ -16,17 +17,19 @@ from pydantic import ValidationError
 
 from .auth import RealtimeAuthenticationError, authenticate_websocket, require_http_token
 from .config import Settings, SettingsDependency, get_settings
+from .messaging import BoardEventEnvelope, EventPipeline
 from .realtime import (
     BoardMessage,
     ConnectionLimitExceeded,
     ActivityEvent,
     broker,
-    build_activity_event,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATE_DIR = BASE_DIR / "templates"
+
+logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -42,6 +45,17 @@ def create_app() -> FastAPI:
     )
 
     app.state.settings = settings
+
+    pipeline = EventPipeline(settings, broker.broadcast)
+    app.state.event_pipeline = pipeline
+
+    @app.on_event("startup")
+    async def start_event_pipeline() -> None:
+        await pipeline.start()
+
+    @app.on_event("shutdown")
+    async def stop_event_pipeline() -> None:
+        await pipeline.stop()
 
     app.add_middleware(
         CORSMiddleware,
@@ -132,6 +146,7 @@ def create_app() -> FastAPI:
             return
 
         connected = False
+        pipeline: EventPipeline = app.state.event_pipeline
         try:
             await broker.connect(board_id, websocket, settings)
             connected = True
@@ -165,8 +180,22 @@ def create_app() -> FastAPI:
                     )
                     continue
 
-                event = build_activity_event(board_id, message)
-                await broker.broadcast(event)
+                envelope = BoardEventEnvelope.from_message(board_id, message)
+                try:
+                    await pipeline.publish(envelope)
+                except Exception:  # pragma: no cover - network/transient failures
+                    logger.exception(
+                        "Failed to publish board event",
+                        extra={"board_id": board_id, "action": message.action},
+                    )
+                    await websocket.send_json(
+                        {
+                            "kind": "error",
+                            "reason": "event_bus_failure",
+                            "detail": "Unable to process board event. Please retry.",
+                        }
+                    )
+                    continue
         except WebSocketDisconnect:
             pass
         finally:
