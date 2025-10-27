@@ -1,0 +1,22 @@
+<li id="note-{{ task.id }}" class="entry entry--{{ task.status }}">
+  <div class="entry__header">
+    <h3>{{ task.title }}</h3>
+    <span class="badge badge-{{ task.status }}">{{ task.status.replace('_', ' ') | title }}</span>
+  </div>
+  {% if task.description %}
+    <p class="entry__description">{{ task.description }}</p>
+  {% endif %}
+  <form
+    class="entry__actions"
+    hx-post="{{ url_for('notes:toggle_status', task_id=task.id) }}"
+    hx-target="#note-{{ task.id }}"
+    hx-swap="outerHTML"
+  >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    {% if task.status == 'completed' %}
+      <button type="submit" class="button button-outline">Mark pending</button>
+    {% else %}
+      <button type="submit" class="button button-secondary">Mark complete</button>
+    {% endif %}
+  </form>
+</li>
