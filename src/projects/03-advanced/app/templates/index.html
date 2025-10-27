@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ project_name }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f9fafb;
+        --panel: #ffffff;
+        --border: #d1d5db;
+        --text: #111827;
+        --muted: #6b7280;
+        --accent: #2563eb;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      header {
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+      }
+
+      main {
+        padding: 1.5rem;
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      }
+
+      .board, .activity, .chat {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .board > header,
+      .activity > header,
+      .chat > header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .board-columns {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        padding: 1rem;
+      }
+
+      .column {
+        border: 1px dashed var(--border);
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        min-height: 180px;
+        background: rgba(37, 99, 235, 0.04);
+      }
+
+      .column h3 {
+        margin-top: 0;
+      }
+
+      .card {
+        background: #fff;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid rgba(37, 99, 235, 0.15);
+      }
+
+      .activity-list,
+      .chat-log {
+        list-style: none;
+        margin: 0;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        overflow-y: auto;
+        max-height: 320px;
+      }
+
+      .activity-list li,
+      .chat-log li {
+        font-size: 0.95rem;
+        line-height: 1.5;
+        border-left: 3px solid var(--accent);
+        padding-left: 0.75rem;
+      }
+
+      form {
+        padding: 1rem;
+        border-top: 1px solid var(--border);
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        font-size: 0.85rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      input, select, textarea, button {
+        margin-top: 0.25rem;
+        padding: 0.65rem;
+        border-radius: 0.5rem;
+        border: 1px solid var(--border);
+        font-size: 1rem;
+      }
+
+      textarea {
+        min-height: 100px;
+        resize: vertical;
+      }
+
+      button {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        transition: background 0.2s ease-in-out;
+      }
+
+      button:hover {
+        background: #1d4ed8;
+      }
+
+      .status-bar {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        font-size: 0.95rem;
+        padding: 0.25rem 0;
+        color: var(--muted);
+      }
+
+      .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      .status-indicator[data-state="connected"]::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #22c55e;
+        box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+      }
+
+      .status-indicator[data-state="disconnected"]::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #ef4444;
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+      }
+
+      .token-hint {
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      @media (max-width: 1024px) {
+        .board-columns {
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>{{ project_name }}</h1>
+      <p class="token-hint">
+        Provide the realtime token to establish a connection. Hint:
+        <strong>{{ token_hint }}</strong>
+      </p>
+      <form id="token-form">
+        <label>Realtime token
+          <input id="token-input" type="password" placeholder="Enter realtime token" autocomplete="off" required />
+        </label>
+        <button type="submit">Connect clients</button>
+      </form>
+      <div class="status-bar">
+        <span class="status-indicator" id="ws-status" data-state="disconnected">WebSocket: disconnected</span>
+        <span class="status-indicator" id="sse-status" data-state="disconnected">Activity stream: disconnected</span>
+        <span id="client-count">Active collaborators: 0</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="board" aria-labelledby="board-heading">
+        <header>
+          <h2 id="board-heading">Realtime Kanban</h2>
+          <p>Add cards to the collaborative board; all connected clients receive updates instantly.</p>
+        </header>
+        <div class="board-columns" id="board-columns">
+          <div class="column" data-column="backlog">
+            <h3>Backlog</h3>
+            <div class="column-cards"></div>
+          </div>
+          <div class="column" data-column="in_progress">
+            <h3>In Progress</h3>
+            <div class="column-cards"></div>
+          </div>
+          <div class="column" data-column="done">
+            <h3>Done</h3>
+            <div class="column-cards"></div>
+          </div>
+        </div>
+        <form id="card-form">
+          <label>Card title
+            <input id="card-title" name="title" type="text" placeholder="Write integration tests" required />
+          </label>
+          <label>Column
+            <select id="card-column" name="column">
+              <option value="backlog" selected>Backlog</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+          </label>
+          <button type="submit">Broadcast card to board</button>
+        </form>
+      </section>
+
+      <section class="chat" aria-labelledby="chat-heading">
+        <header>
+          <h2 id="chat-heading">Team chat</h2>
+          <p>Messages posted here are synchronised for every connected websocket client.</p>
+        </header>
+        <ul class="chat-log" id="chat-log"></ul>
+        <form id="chat-form">
+          <label>Display name
+            <input id="chat-user" name="user" type="text" placeholder="Casey" />
+          </label>
+          <label>Message
+            <textarea id="chat-message" name="message" placeholder="Feature branch is ready for review" required></textarea>
+          </label>
+          <button type="submit">Send chat message</button>
+        </form>
+      </section>
+
+      <section class="activity" aria-labelledby="activity-heading">
+        <header>
+          <h2 id="activity-heading">Activity feed</h2>
+          <p>Server-Sent Events stream summarising board actions across all clients.</p>
+        </header>
+        <ul class="activity-list" id="activity-feed"></ul>
+      </section>
+    </main>
+
+    <script>
+      window.realtimeConfig = {
+        boardChannel: "{{ channels.board }}",
+        activityChannel: "{{ channels.activity }}",
+        tokenHint: "{{ token_hint }}",
+        reconnect: {
+          initialDelay: {{ reconnect.initial_delay }},
+          maxDelay: {{ reconnect.max_delay }}
+        }
+      };
+    </script>
+    <script src="{{ url_for('advanced-static', path='js/realtime.js') }}" defer></script>
+  </body>
+</html>
