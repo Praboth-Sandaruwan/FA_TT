@@ -34,6 +34,12 @@ This repository contains a minimal Python project skeleton configured with moder
 
 All tooling is configured via the committed configuration files in the project root. The pre-commit hooks ensure that Ruff, Black, and mypy run automatically before each commit.
 
+## Documentation
+
+- Start new project docs from the shared [template](docs/template.md) so structure remains consistent across the repository.
+- Store diagrams, media, and their source files under [`docs/diagrams`](docs/diagrams/README.md) for easy reuse.
+- Review the [contribution guidelines](CONTRIBUTING.md) for branching, testing, and PR expectations.
+
 ---
 
 ## Docker Compose Stack
