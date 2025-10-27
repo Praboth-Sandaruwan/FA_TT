@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360" role="img" aria-labelledby="title desc">
+  <title id="title">Beginner project database schema</title>
+  <desc id="desc">Entity relationship diagram showing users, tasks, and task_reports tables with their key columns and relationships.</desc>
+  <defs>
+    <style>
+      .table { fill: #ffffff; stroke: #1890ff; stroke-width: 2; rx: 14; ry: 14; }
+      .header { fill: #e6f7ff; stroke: none; rx: 14; ry: 14; }
+      .title { font-family: "Inter", "Segoe UI", sans-serif; font-size: 18px; font-weight: 600; fill: #0050b3; }
+      .field { font-family: "Inter", "Segoe UI", sans-serif; font-size: 13px; fill: #10239e; }
+      .note { font-family: "Inter", "Segoe UI", sans-serif; font-size: 12px; fill: #5b8cdb; }
+      .pk { font-weight: 700; }
+      .fk { fill: #722ed1; }
+      .line { stroke: #722ed1; stroke-width: 2.5; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+      <polygon points="0 0, 10 4, 0 8" fill="#722ed1" />
+    </marker>
+  </defs>
+
+  <g transform="translate(60, 40)">
+    <rect class="table" width="220" height="220" />
+    <rect class="header" x="0" y="0" width="220" height="48" rx="14" ry="14" />
+    <text class="title" x="20" y="30">users</text>
+    <text class="field pk" x="20" y="70">id SERIAL PRIMARY KEY</text>
+    <text class="field" x="20" y="92">email VARCHAR(320) UNIQUE</text>
+    <text class="field" x="20" y="114">full_name VARCHAR(255)</text>
+    <text class="field" x="20" y="136">hashed_password VARCHAR(255)</text>
+    <text class="field" x="20" y="158">role user|admin</text>
+    <text class="field" x="20" y="180">is_active BOOLEAN DEFAULT TRUE</text>
+    <text class="field" x="20" y="202">created_at timestamptz</text>
+    <text class="field" x="20" y="224">updated_at timestamptz</text>
+    <text class="note" x="20" y="250">One row per authenticated person.</text>
+  </g>
+
+  <g transform="translate(320, 40)">
+    <rect class="table" width="220" height="240" />
+    <rect class="header" x="0" y="0" width="220" height="48" rx="14" ry="14" />
+    <text class="title" x="20" y="30">tasks</text>
+    <text class="field pk" x="20" y="70">id SERIAL PRIMARY KEY</text>
+    <text class="field" x="20" y="92">title VARCHAR(255) NOT NULL</text>
+    <text class="field" x="20" y="114">description TEXT</text>
+    <text class="field" x="20" y="136">status pending|in_progress|completed|cancelled</text>
+    <text class="field fk" x="20" y="158">owner_id INTEGER REFERENCES users(id)</text>
+    <text class="field" x="20" y="180">created_at timestamptz</text>
+    <text class="field" x="20" y="202">updated_at timestamptz</text>
+    <text class="note" x="20" y="230">Belongs to exactly one user, cascades on delete.</text>
+  </g>
+
+  <g transform="translate(580, 80)">
+    <rect class="table" width="220" height="200" />
+    <rect class="header" x="0" y="0" width="220" height="48" rx="14" ry="14" />
+    <text class="title" x="20" y="30">task_reports</text>
+    <text class="field pk" x="20" y="70">id SERIAL PRIMARY KEY</text>
+    <text class="field fk" x="20" y="92">owner_id INTEGER UNIQUE</text>
+    <text class="field" x="20" y="114">total_tasks INTEGER DEFAULT 0</text>
+    <text class="field" x="20" y="136">pending_tasks INTEGER DEFAULT 0</text>
+    <text class="field" x="20" y="158">in_progress_tasks INTEGER DEFAULT 0</text>
+    <text class="field" x="20" y="180">completed_tasks INTEGER DEFAULT 0</text>
+    <text class="field" x="20" y="202">cancelled_tasks INTEGER DEFAULT 0</text>
+    <text class="field" x="20" y="224">generated_at timestamptz</text>
+    <text class="note" x="20" y="252">Extension table for analytics snapshots.</text>
+  </g>
+
+  <path class="line" d="M280 160 C310 160 310 160 320 160" />
+  <path class="line" d="M540 200 C560 200 560 160 580 160" />
+
+  <text class="note" x="280" y="148">1:N</text>
+  <text class="note" x="540" y="188">1:1 (optional)</text>
+</svg>
