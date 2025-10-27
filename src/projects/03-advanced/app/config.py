@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Callable, Literal
 
 from fastapi import Depends
 from pydantic import Field, field_validator
@@ -67,13 +67,100 @@ class Settings(BaseSettings):
             "http://localhost:5173",
         ]
     )
+    cors_allow_credentials: bool = False
+    cors_allow_methods: list[str] = Field(
+        default_factory=lambda: ["GET", "HEAD", "OPTIONS"]
+    )
+    cors_allow_headers: list[str] = Field(
+        default_factory=lambda: [
+            "Accept",
+            "Accept-Language",
+            "Authorization",
+            "Content-Type",
+            "Cache-Control",
+            "Pragma",
+            "X-Requested-With",
+        ]
+    )
+    cors_expose_headers: list[str] = Field(
+        default_factory=lambda: [
+            "Retry-After",
+            "X-Request-ID",
+            "X-RateLimit-Limit",
+            "X-RateLimit-Remaining",
+        ]
+    )
+    cors_max_age: int = 600
+
+    security_headers_enabled: bool = True
+    content_security_policy: str = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "font-src 'self'; "
+        "connect-src 'self' https: http: ws: wss:; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'; "
+        "base-uri 'self'; "
+        "object-src 'none'"
+    )
+    strict_transport_security: str = "max-age=63072000; includeSubDomains; preload"
+    referrer_policy: str = "no-referrer"
+    permissions_policy: str = "camera=(), microphone=(), geolocation=()"
+    cross_origin_opener_policy: str = "same-origin"
+    cross_origin_resource_policy: str = "same-origin"
+    cross_origin_embedder_policy: str | None = None
+    x_content_type_options: str = "nosniff"
+    x_frame_options: str = "DENY"
+    remove_server_header: bool = True
+
+    @staticmethod
+    def _coerce_list(
+        value: str | list[str] | tuple[str, ...],
+        *,
+        normalise: Callable[[str], str] | None = None,
+    ) -> list[str]:
+        if isinstance(value, str):
+            items = [item.strip() for item in value.split(",") if item.strip()]
+        elif isinstance(value, (list, tuple)):
+            items = [str(item).strip() for item in value if str(item).strip()]
+        else:
+            return []
+        if normalise:
+            items = [normalise(item) for item in items]
+        return items
 
     @field_validator("allowed_origins", mode="before")
     @classmethod
     def _split_allowed_origins(cls, value: str | list[str]) -> list[str]:
-        if isinstance(value, str):
-            origins = [item.strip() for item in value.split(",") if item.strip()]
-            return origins or ["*"]
+        origins = cls._coerce_list(value)
+        if not origins:
+            raise ValueError(
+                "ADVANCED_ALLOWED_ORIGINS must specify at least one explicit origin."
+            )
+        if any(origin == "*" or origin.endswith("://*") for origin in origins):
+            raise ValueError(
+                "Wildcard origins are not permitted for ADVANCED_ALLOWED_ORIGINS."
+            )
+        return origins
+
+    @field_validator("cors_allow_methods", mode="before")
+    @classmethod
+    def _parse_cors_methods(cls, value: str | list[str]) -> list[str]:
+        methods = cls._coerce_list(value, normalise=lambda entry: entry.upper())
+        return methods or ["GET", "HEAD", "OPTIONS"]
+
+    @field_validator("cors_allow_headers", "cors_expose_headers", mode="before")
+    @classmethod
+    def _parse_cors_headers(cls, value: str | list[str]) -> list[str]:
+        return cls._coerce_list(value)
+
+    @field_validator("cors_max_age")
+    @classmethod
+    def _validate_cors_max_age(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("ADVANCED_CORS_MAX_AGE must be zero or a positive integer.")
         return value
 
     @field_validator("metrics_path")
@@ -107,6 +194,24 @@ class Settings(BaseSettings):
         if isinstance(value, str) and not value.strip():
             return None
         return value
+
+    @field_validator(
+        "content_security_policy",
+        "strict_transport_security",
+        "referrer_policy",
+        "permissions_policy",
+        "cross_origin_opener_policy",
+        "cross_origin_resource_policy",
+        "cross_origin_embedder_policy",
+        "x_content_type_options",
+        "x_frame_options",
+        mode="before",
+    )
+    @classmethod
+    def _strip_security_strings(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return str(value).strip()
 
 
 @lru_cache

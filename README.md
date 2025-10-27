@@ -34,6 +34,13 @@ This repository contains a minimal Python project skeleton configured with moder
 
 All tooling is configured via the committed configuration files in the project root. The pre-commit hooks ensure that Ruff, Black, and mypy run automatically before each commit.
 
+## Security automation
+
+- **Static analysis**: Run `poetry run bandit -r src` locally; the new pre-commit hook also blocks unsafe patterns before they land in git.
+- **Secure defaults**: Strict CORS whitelists and hardened response headers are enabled out of the box. Environment variables such as `ADVANCED_CORS_*` and `ADVANCED_CONTENT_SECURITY_POLICY` let you extend the policy for trusted clients.
+- **GitHub automation**: CodeQL scanning, Dependabot updates, CODEOWNERS, and the pull request template live under the `.github/` directory to enforce consistent reviews.
+- **Branch protection**: Follow the checklist in [docs/security/hardening.md](docs/security/hardening.md) to require approvals, status checks, and CODEOWNER sign-off before merge.
+
 ## Documentation
 
 - Start new project docs from the shared [template](docs/template.md) so structure remains consistent across the repository.

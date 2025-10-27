@@ -127,3 +127,46 @@ def test_sse_activity_stream_receives_board_events(client: TestClient) -> None:
         assert payload["payload"]["title"] == "Synchronise SSE"
     finally:
         stream.__exit__(None, None, None)
+
+
+def test_security_headers_are_applied(client: TestClient) -> None:
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.headers["Content-Security-Policy"].startswith("default-src 'self'")
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["X-Content-Type-Options"].lower() == "nosniff"
+    assert response.headers["Strict-Transport-Security"].startswith("max-age=")
+    assert "server" not in {key.lower() for key in response.headers.keys()}
+
+
+def test_cors_configuration_is_strict(client: TestClient) -> None:
+    response = client.options(
+        "/",
+        headers={
+            "Origin": "http://localhost",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "Authorization",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost"
+    allowed_methods = {
+        method.strip()
+        for method in response.headers["access-control-allow-methods"].split(",")
+    }
+    assert allowed_methods == {"GET", "HEAD", "OPTIONS"}
+    allowed_headers = {
+        header.strip()
+        for header in response.headers["access-control-allow-headers"].split(",")
+    }
+    assert "Authorization" in allowed_headers
+    disallowed_origin = client.options(
+        "/",
+        headers={
+            "Origin": "https://malicious.invalid",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert "access-control-allow-origin" not in {
+        key.lower() for key in disallowed_origin.headers.keys()
+    }
