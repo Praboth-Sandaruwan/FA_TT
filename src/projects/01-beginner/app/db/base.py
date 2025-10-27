@@ -1,11 +1,10 @@
-"""Declarative base definition for ORM models."""
+"""SQLModel metadata registration for Alembic autogeneration."""
 
 from __future__ import annotations
 
-from sqlalchemy.orm import DeclarativeBase
+from sqlmodel import SQLModel
 
+# Import models so that SQLModel.metadata is populated for Alembic.
+from ..models import Task, User  # noqa: F401
 
-class Base(DeclarativeBase):
-    """Base class for SQLAlchemy models."""
-
-    pass
+__all__ = ["SQLModel", "Task", "User"]

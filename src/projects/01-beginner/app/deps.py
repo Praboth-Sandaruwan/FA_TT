@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .core.config import Settings, get_settings
 from .db.session import get_session
