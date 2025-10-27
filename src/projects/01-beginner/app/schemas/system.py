@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -18,3 +20,14 @@ class HealthCheckResponse(BaseModel):
     """Payload returned by the health check endpoint."""
 
     status: str = Field(default="ok", description="Service health indicator")
+
+
+class ErrorResponse(BaseModel):
+    """Standardised error envelope returned by exception handlers."""
+
+    code: str = Field(description="Machine-readable error identifier")
+    message: str = Field(description="Human-readable error message")
+    details: Any | None = Field(
+        default=None,
+        description="Optional structured metadata describing the error context.",
+    )

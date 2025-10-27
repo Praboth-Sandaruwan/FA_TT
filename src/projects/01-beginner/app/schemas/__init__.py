@@ -10,13 +10,14 @@ from .auth import (
     SignupRequest,
     TokenPayload,
 )
-from .system import HealthCheckResponse, RootResponse
+from .system import ErrorResponse, HealthCheckResponse, RootResponse
 from .task import TaskCreate, TaskListResponse, TaskRead, TaskUpdate
 from .user import UserPublic
 
 __all__ = [
     "AuthResponse",
     "AuthTokens",
+    "ErrorResponse",
     "HealthCheckResponse",
     "RefreshRequest",
     "RefreshResponse",

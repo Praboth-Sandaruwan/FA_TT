@@ -7,7 +7,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from ...core.config import Settings
 from ...deps import DatabaseSessionDependency, SettingsDependency
-from ...errors import ApplicationError
 from ...models import User
 from ...schemas import (
     AuthResponse,
@@ -48,14 +47,11 @@ async def signup(
     settings: SettingsDependency,
 ) -> AuthResponse:
     service = AuthService(session, settings)
-    try:
-        user = await service.register_user(
-            email=payload.email,
-            password=payload.password,
-            full_name=payload.full_name,
-        )
-    except ApplicationError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    user = await service.register_user(
+        email=payload.email,
+        password=payload.password,
+        full_name=payload.full_name,
+    )
 
     token_pair = service.build_token_pair(user)
     return AuthResponse(user=_map_user(user), tokens=_build_tokens(token_pair, settings))
@@ -73,10 +69,7 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
 ) -> AuthResponse:
     service = AuthService(session, settings)
-    try:
-        user = await service.authenticate_user(form_data.username, form_data.password)
-    except ApplicationError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    user = await service.authenticate_user(form_data.username, form_data.password)
 
     if user is None:
         raise HTTPException(
@@ -101,9 +94,6 @@ async def refresh_tokens(
     settings: SettingsDependency,
 ) -> RefreshResponse:
     service = AuthService(session, settings)
-    try:
-        user, token_pair = await service.refresh_from_token(payload.refresh_token)
-    except ApplicationError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    user, token_pair = await service.refresh_from_token(payload.refresh_token)
 
     return RefreshResponse(user=_map_user(user), tokens=_build_tokens(token_pair, settings))
