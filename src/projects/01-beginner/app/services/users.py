@@ -6,7 +6,8 @@ from typing import Sequence
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from ..models import User
+from ..core.security import get_password_hash
+from ..models import User, UserRole
 from ..repositories import UserRepository
 
 
@@ -26,11 +27,20 @@ class UserService:
         self,
         *,
         email: str,
+        password: str,
         full_name: str | None = None,
         is_active: bool = True,
+        role: UserRole = UserRole.USER,
     ) -> User:
         """Create and persist a new user record."""
-        user = User(email=email, full_name=full_name, is_active=is_active)
+        hashed_password = get_password_hash(password)
+        user = User(
+            email=email,
+            full_name=full_name,
+            is_active=is_active,
+            role=role,
+            hashed_password=hashed_password,
+        )
         await self._repository.add(user)
         await self._session.commit()
         await self._repository.refresh(user)
@@ -62,6 +72,8 @@ class UserService:
         *,
         full_name: str | None = None,
         is_active: bool | None = None,
+        role: UserRole | None = None,
+        password: str | None = None,
     ) -> User:
         """Apply updates to a user record and persist the changes."""
         user = await self._repository.get(user_id)
@@ -71,6 +83,10 @@ class UserService:
             user.full_name = full_name
         if is_active is not None:
             user.is_active = is_active
+        if role is not None:
+            user.role = role
+        if password is not None:
+            user.hashed_password = get_password_hash(password)
         await self._session.commit()
         await self._repository.refresh(user)
         return user

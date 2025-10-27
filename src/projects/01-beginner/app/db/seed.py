@@ -18,7 +18,11 @@ async def seed() -> None:
         email = "demo@example.com"
         user = await user_service.get_user_by_email(email)
         if user is None:
-            user = await user_service.create_user(email=email, full_name="Demo User")
+            user = await user_service.create_user(
+                email=email,
+                password="demo-password",
+                full_name="Demo User",
+            )
 
         if user.id is None:  # pragma: no cover - defensive guard
             raise ValueError("Seed user was not persisted correctly")

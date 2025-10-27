@@ -62,8 +62,19 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     reload: bool = Field(default=True, alias="RELOAD")
     jwt_secret_key: str = Field(default="change-me", alias="JWT_SECRET_KEY")
+    jwt_refresh_secret_key: str = Field(
+        default="change-me-refresh",
+        alias="JWT_REFRESH_SECRET_KEY",
+    )
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
-    access_token_expire_minutes: int = Field(default=30, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    access_token_expire_minutes: int = Field(
+        default=30,
+        alias="ACCESS_TOKEN_EXPIRE_MINUTES",
+    )
+    refresh_token_expire_minutes: int = Field(
+        default=60 * 24,
+        alias="REFRESH_TOKEN_EXPIRE_MINUTES",
+    )
     db_echo: bool = Field(default=False, alias="DB_ECHO")
 
     @field_validator(
