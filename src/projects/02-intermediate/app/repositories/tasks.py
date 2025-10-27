@@ -40,6 +40,19 @@ class TaskRepository(BaseRepository[Task]):
         total = int(total_result.scalar_one())
         return tasks, total
 
+    async def count_by_status(self, *, owner_id: int | None = None) -> dict[TaskStatus, int]:
+        """Return a mapping of task status to the number of matching records."""
+
+        query = select(Task.status, func.count()).select_from(Task)
+        if owner_id is not None:
+            query = query.where(Task.owner_id == owner_id)
+        query = query.group_by(Task.status)
+        result = await self.session.execute(query)
+        counts: dict[TaskStatus, int] = {}
+        for status, count in result.all():
+            counts[status] = int(count)
+        return counts
+
     async def list_for_owner(self, owner_id: int) -> list[Task]:
         """Return all tasks assigned to the given owner."""
         result = await self.session.execute(select(Task).where(Task.owner_id == owner_id))

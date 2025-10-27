@@ -13,6 +13,7 @@ asyncpg = "^0.30.0"
 fastapi = "^0.120.0"
 httpx = "^0.27.0"
 pydantic-settings = {extras = ["dotenv"], version = "^2.11.0"}
+redis = "^5.0.7"
 sqlalchemy = "^2.0.44"
 sqlmodel = "^0.0.22"
 uvicorn = {extras = ["standard"], version = "^0.38.0"}
@@ -26,6 +27,7 @@ optional = false
 aiosqlite = "^0.20.0"
 black = "^24.10.0"
 coverage = "^7.6.4"
+fakeredis = "^2.32.0"
 mypy = "^1.11.2"
 pre-commit = "^3.8.0"
 pytest = "^8.3.3"

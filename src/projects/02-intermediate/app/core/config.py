@@ -76,12 +76,24 @@ class Settings(BaseSettings):
         alias="REFRESH_TOKEN_EXPIRE_MINUTES",
     )
     db_echo: bool = Field(default=False, alias="DB_ECHO")
+    cache_enabled: bool = Field(default=True, alias="CACHE_ENABLED")
+    cache_default_ttl_seconds: int = Field(default=60, alias="CACHE_TTL_SECONDS")
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
     session_secret_key: str = Field(default="change-me-session", alias="SESSION_SECRET_KEY")
     session_cookie_name: str = Field(default="intermediate_session", alias="SESSION_COOKIE_NAME")
     session_max_age: int | None = Field(default=60 * 60 * 24 * 14, alias="SESSION_MAX_AGE")
     session_https_only: bool = Field(default=True, alias="SESSION_HTTPS_ONLY")
     session_same_site: str = Field(default="lax", alias="SESSION_SAME_SITE")
+
+    @field_validator("cache_default_ttl_seconds", mode="before")
+    @classmethod
+    def _ensure_non_negative_ttl(cls, value: object) -> int:
+        try:
+            ttl = int(value)
+        except (TypeError, ValueError):
+            return 60
+        return max(ttl, 0)
 
     @field_validator(
         "cors_allow_origins",

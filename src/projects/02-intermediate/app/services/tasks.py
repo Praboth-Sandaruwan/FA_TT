@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from ..core.cache import invalidate_task_cache
 from ..models import Task, TaskStatus
 from ..repositories import TaskRepository, UserRepository
+
+
+@dataclass(slots=True)
+class TaskStatisticsResult:
+    """Aggregate statistics for tasks, optionally scoped to an owner."""
+
+    owner_id: int | None
+    total: int
+    by_status: dict[str, int]
 
 
 class TaskService:
@@ -20,6 +32,9 @@ class TaskService:
     def repository(self) -> TaskRepository:
         """Expose the underlying repository for advanced scenarios."""
         return self._repository
+
+    async def _invalidate_cache(self) -> None:
+        await invalidate_task_cache()
 
     def _apply_task_updates(
         self,
@@ -58,6 +73,7 @@ class TaskService:
         await self._repository.add(task)
         await self._session.commit()
         await self._repository.refresh(task)
+        await self._invalidate_cache()
         return task
 
     async def get_task(self, task_id: int) -> Task | None:
@@ -96,6 +112,16 @@ class TaskService:
             offset=offset,
         )
 
+    async def get_task_statistics(self, owner_id: int | None = None) -> TaskStatisticsResult:
+        """Return aggregate statistics for tasks, optionally filtered by owner."""
+
+        counts = await self._repository.count_by_status(owner_id=owner_id)
+        by_status = {status.value: 0 for status in TaskStatus}
+        for status, count in counts.items():
+            by_status[status.value] = count
+        total = sum(by_status.values())
+        return TaskStatisticsResult(owner_id=owner_id, total=total, by_status=by_status)
+
     async def update_task(
         self,
         task_id: int,
@@ -116,6 +142,7 @@ class TaskService:
         )
         await self._session.commit()
         await self._repository.refresh(task)
+        await self._invalidate_cache()
         return task
 
     async def update_task_for_owner(
@@ -141,6 +168,7 @@ class TaskService:
         )
         await self._session.commit()
         await self._repository.refresh(task)
+        await self._invalidate_cache()
         return task
 
     async def reassign_task(self, task_id: int, owner_id: int) -> Task:
@@ -154,6 +182,7 @@ class TaskService:
         task.owner_id = owner_id
         await self._session.commit()
         await self._repository.refresh(task)
+        await self._invalidate_cache()
         return task
 
     async def delete_task(self, task_id: int) -> bool:
@@ -163,6 +192,7 @@ class TaskService:
             return False
         await self._repository.delete(task)
         await self._session.commit()
+        await self._invalidate_cache()
         return True
 
     async def delete_task_for_owner(self, task_id: int, owner_id: int) -> bool:
@@ -174,4 +204,5 @@ class TaskService:
             raise PermissionError("Task does not belong to the specified owner")
         await self._repository.delete(task)
         await self._session.commit()
+        await self._invalidate_cache()
         return True

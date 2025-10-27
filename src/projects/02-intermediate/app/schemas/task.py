@@ -18,6 +18,17 @@ TASK_READ_EXAMPLE = {
     "updated_at": "2023-01-02T08:30:00Z",
 }
 
+TASK_STATISTICS_EXAMPLE = {
+    "owner_id": 42,
+    "total": 3,
+    "by_status": {
+        TaskStatus.PENDING.value: 1,
+        TaskStatus.IN_PROGRESS.value: 1,
+        TaskStatus.COMPLETED.value: 1,
+        TaskStatus.CANCELLED.value: 0,
+    },
+}
+
 
 class TaskCreate(BaseModel):
     """Payload for creating a new task."""
@@ -97,9 +108,26 @@ class TaskListResponse(BaseModel):
     offset: int
 
 
+class TaskStatistics(BaseModel):
+    """Aggregated statistics describing task distribution."""
+
+    model_config = ConfigDict(json_schema_extra={"example": TASK_STATISTICS_EXAMPLE})
+
+    owner_id: int | None = Field(default=None)
+    total: int = Field(ge=0)
+    by_status: dict[str, int] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _validate_counts(self) -> "TaskStatistics":
+        if any(count < 0 for count in self.by_status.values()):
+            raise ValueError("Status counts cannot be negative.")
+        return self
+
+
 __all__ = [
     "TaskCreate",
     "TaskListResponse",
     "TaskRead",
+    "TaskStatistics",
     "TaskUpdate",
 ]
