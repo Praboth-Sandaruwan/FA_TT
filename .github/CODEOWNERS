@@ -1,0 +1,6 @@
+# Default reviewers for all files
+* @cto-new/platform-engineering @cto-new/security
+
+# Security guidelines require an explicit security review
+/docs/security/ @cto-new/security
+/.github/ @cto-new/platform-engineering @cto-new/security

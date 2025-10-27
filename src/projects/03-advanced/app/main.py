@@ -28,6 +28,7 @@ from .realtime import (
     ActivityEvent,
     broker,
 )
+from .security import SecurityHeadersMiddleware
 from .telemetry import ObservabilityMiddleware, configure_telemetry, record_rate_limit_rejection
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -92,10 +93,41 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_credentials=settings.cors_allow_credentials,
+        allow_methods=settings.cors_allow_methods,
+        allow_headers=settings.cors_allow_headers,
+        expose_headers=settings.cors_expose_headers,
+        max_age=settings.cors_max_age,
     )
+
+    if settings.security_headers_enabled:
+        security_headers = {
+            header: value
+            for header, value in {
+                "Strict-Transport-Security": settings.strict_transport_security,
+                "X-Content-Type-Options": settings.x_content_type_options,
+                "X-Frame-Options": settings.x_frame_options,
+                "Referrer-Policy": settings.referrer_policy,
+                "Permissions-Policy": settings.permissions_policy,
+                "Cross-Origin-Opener-Policy": settings.cross_origin_opener_policy,
+                "Cross-Origin-Resource-Policy": settings.cross_origin_resource_policy,
+            }.items()
+            if value
+        }
+        if settings.cross_origin_embedder_policy:
+            security_headers["Cross-Origin-Embedder-Policy"] = (
+                settings.cross_origin_embedder_policy
+            )
+        if settings.content_security_policy:
+            security_headers["Content-Security-Policy"] = (
+                settings.content_security_policy
+            )
+        if security_headers:
+            app.add_middleware(
+                SecurityHeadersMiddleware,
+                headers=security_headers,
+                remove_server_header=settings.remove_server_header,
+            )
 
     app.add_middleware(SlowAPIMiddleware)
     if telemetry_state.enabled:
