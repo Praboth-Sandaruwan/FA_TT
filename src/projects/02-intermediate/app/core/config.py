@@ -79,6 +79,15 @@ class Settings(BaseSettings):
     cache_enabled: bool = Field(default=True, alias="CACHE_ENABLED")
     cache_default_ttl_seconds: int = Field(default=60, alias="CACHE_TTL_SECONDS")
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    job_queue_name: str = Field(default="intermediate:tasks", alias="JOB_QUEUE_NAME")
+    job_worker_name: str = Field(default="intermediate-worker", alias="JOB_WORKER_NAME")
+    job_default_timeout: int = Field(default=300, alias="JOB_TIMEOUT_SECONDS")
+    job_result_ttl_seconds: int = Field(default=600, alias="JOB_RESULT_TTL_SECONDS")
+    job_max_retries: int = Field(default=3, alias="JOB_MAX_RETRIES")
+    job_retry_backoff_seconds: list[int] = Field(
+        default_factory=lambda: [5, 15, 30],
+        alias="JOB_RETRY_BACKOFF_SECONDS",
+    )
 
     session_secret_key: str = Field(default="change-me-session", alias="SESSION_SECRET_KEY")
     session_cookie_name: str = Field(default="intermediate_session", alias="SESSION_COOKIE_NAME")
@@ -110,6 +119,34 @@ class Settings(BaseSettings):
         if isinstance(value, Sequence):
             return [str(item) for item in value if str(item).strip()]
         return []
+
+    @field_validator("job_default_timeout", "job_result_ttl_seconds", "job_max_retries", mode="before")
+    @classmethod
+    def _ensure_non_negative_job_settings(cls, value: object) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return 0
+        return max(parsed, 0)
+
+    @field_validator("job_retry_backoff_seconds", mode="before")
+    @classmethod
+    def _parse_retry_backoff(cls, value: object) -> list[int]:
+        if isinstance(value, str):
+            items = [item.strip() for item in value.split(",") if item.strip()]
+        elif isinstance(value, Sequence):
+            items = [str(item).strip() for item in value if str(item).strip()]
+        else:
+            items = []
+        backoff: list[int] = []
+        for item in items:
+            try:
+                backoff.append(max(int(item), 0))
+            except (TypeError, ValueError):
+                continue
+        if not backoff:
+            return [5, 15, 30]
+        return backoff
 
     @field_validator("log_level", mode="before")
     @classmethod

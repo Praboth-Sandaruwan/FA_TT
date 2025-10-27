@@ -10,6 +10,7 @@ from .auth import (
     SignupRequest,
     TokenPayload,
 )
+from .report import JobEnqueueResponse, TaskReportJobRequest, TaskReportRead
 from .system import ErrorResponse, HealthCheckResponse, RootResponse
 from .task import TaskCreate, TaskListResponse, TaskRead, TaskStatistics, TaskUpdate
 from .user import UserPublic
@@ -19,6 +20,7 @@ __all__ = [
     "AuthTokens",
     "ErrorResponse",
     "HealthCheckResponse",
+    "JobEnqueueResponse",
     "RefreshRequest",
     "RefreshResponse",
     "RootResponse",
@@ -26,6 +28,8 @@ __all__ = [
     "TaskCreate",
     "TaskListResponse",
     "TaskRead",
+    "TaskReportJobRequest",
+    "TaskReportRead",
     "TaskStatistics",
     "TaskUpdate",
     "TokenPayload",
