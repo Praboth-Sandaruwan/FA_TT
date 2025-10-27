@@ -21,6 +21,22 @@ class TaskService:
         """Expose the underlying repository for advanced scenarios."""
         return self._repository
 
+    def _apply_task_updates(
+        self,
+        task: Task,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        status: TaskStatus | None = None,
+    ) -> None:
+        """Apply in-memory changes to a task instance."""
+        if title is not None:
+            task.title = title
+        if description is not None:
+            task.description = description
+        if status is not None:
+            task.status = status
+
     async def create_task(
         self,
         *,
@@ -64,6 +80,22 @@ class TaskService:
         """Return tasks filtered by their status."""
         return await self._repository.list_by_status(status)
 
+    async def list_tasks_paginated(
+        self,
+        *,
+        owner_id: int | None = None,
+        status: TaskStatus | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[Task], int]:
+        """Return tasks matching the provided filters and pagination options."""
+        return await self._repository.list_paginated(
+            owner_id=owner_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
+
     async def update_task(
         self,
         task_id: int,
@@ -76,12 +108,37 @@ class TaskService:
         task = await self._repository.get(task_id)
         if task is None:
             raise ValueError(f"Task {task_id} does not exist")
-        if title is not None:
-            task.title = title
-        if description is not None:
-            task.description = description
-        if status is not None:
-            task.status = status
+        self._apply_task_updates(
+            task,
+            title=title,
+            description=description,
+            status=status,
+        )
+        await self._session.commit()
+        await self._repository.refresh(task)
+        return task
+
+    async def update_task_for_owner(
+        self,
+        task_id: int,
+        owner_id: int,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        status: TaskStatus | None = None,
+    ) -> Task:
+        """Update a task while ensuring it belongs to the specified owner."""
+        task = await self._repository.get(task_id)
+        if task is None:
+            raise ValueError(f"Task {task_id} does not exist")
+        if task.owner_id != owner_id:
+            raise PermissionError("Task does not belong to the specified owner")
+        self._apply_task_updates(
+            task,
+            title=title,
+            description=description,
+            status=status,
+        )
         await self._session.commit()
         await self._repository.refresh(task)
         return task
@@ -104,6 +161,17 @@ class TaskService:
         task = await self._repository.get(task_id)
         if task is None:
             return False
+        await self._repository.delete(task)
+        await self._session.commit()
+        return True
+
+    async def delete_task_for_owner(self, task_id: int, owner_id: int) -> bool:
+        """Delete a task while ensuring it belongs to the provided owner."""
+        task = await self._repository.get(task_id)
+        if task is None:
+            return False
+        if task.owner_id != owner_id:
+            raise PermissionError("Task does not belong to the specified owner")
         await self._repository.delete(task)
         await self._session.commit()
         return True

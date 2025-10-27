@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from sqlalchemy import func
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -14,6 +15,30 @@ class TaskRepository(BaseRepository[Task]):
 
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session, Task)
+
+    async def list_paginated(
+        self,
+        *,
+        owner_id: int | None = None,
+        status: TaskStatus | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[Task], int]:
+        """Return tasks matching the provided filters along with the total count."""
+        query = select(Task)
+        count_query = select(func.count()).select_from(Task)
+        if owner_id is not None:
+            query = query.where(Task.owner_id == owner_id)
+            count_query = count_query.where(Task.owner_id == owner_id)
+        if status is not None:
+            query = query.where(Task.status == status)
+            count_query = count_query.where(Task.status == status)
+        query = query.order_by(Task.id).limit(limit).offset(offset)
+        result = await self.session.execute(query)
+        tasks = list(result.scalars().all())
+        total_result = await self.session.execute(count_query)
+        total = int(total_result.scalar_one())
+        return tasks, total
 
     async def list_for_owner(self, owner_id: int) -> list[Task]:
         """Return all tasks assigned to the given owner."""
