@@ -34,6 +34,7 @@ ruff = "^0.7.1"
 
 [tool.poetry.scripts]
 beginner-app = "projects.01-beginner.app.main:run"
+intermediate-app = "projects.02-intermediate.app.main:run"
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]
@@ -41,7 +42,10 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.coverage.run]
 branch = true
-source = ["src/projects/01-beginner/app"]
+source = [
+    "src/projects/01-beginner/app",
+    "src/projects/02-intermediate/app",
+]
 
 [tool.coverage.report]
 show_missing = true

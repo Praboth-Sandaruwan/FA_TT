@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="notes-header">
+    <h1>My entries</h1>
+    <p>Capture quick notes, todo items, or blog ideas and track progress in real time.</p>
+  </section>
+
+  <section class="notes-form">
+    <h2>Add a new entry</h2>
+    <form method="post" action="{{ url_for('notes:create_note') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+      <div class="form-field{% if errors.title %} has-error{% endif %}">
+        <label for="title">Title</label>
+        <input
+          id="title"
+          name="title"
+          type="text"
+          value="{{ form.title }}"
+          maxlength="255"
+          required
+        />
+        {% if errors.title %}
+          <p class="form-error">{{ errors.title }}</p>
+        {% endif %}
+      </div>
+
+      <div class="form-field">
+        <label for="description">Details <span class="optional">Optional</span></label>
+        <textarea id="description" name="description" rows="3">{{ form.description }}</textarea>
+      </div>
+
+      <button type="submit" class="button">Save entry</button>
+    </form>
+  </section>
+
+  <section class="notes-list">
+    <h2>Recent entries</h2>
+    <ul id="notes-list" class="entry-list">
+      {% if tasks %}
+        {% for task in tasks %}
+          {% with task=task %}
+            {% include "notes/_note_item.html" %}
+          {% endwith %}
+        {% endfor %}
+      {% else %}
+        <li class="entry-list__empty">
+          <p>You haven't added any entries yet. Start with the form above.</p>
+        </li>
+      {% endif %}
+    </ul>
+  </section>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="hero">
+    <h1>Craft rich experiences with FastAPI, Jinja2, and HTMX.</h1>
+    <p>
+      This intermediate scaffold wires together a JSON API with a server-rendered UI, secure
+      session management, and progressive enhancement powered by HTMX.
+    </p>
+    <div class="hero-actions">
+      <a class="button" href="{{ url_for('auth:register') }}">Create an account</a>
+      <a class="button button-outline" href="{{ url_for('auth:login') }}">I already have access</a>
+    </div>
+  </section>
+
+  <section class="feature-grid">
+    <article>
+      <h2>API + SSR</h2>
+      <p>
+        Blend REST endpoints with server-rendered templates so browsers and API clients can share the
+        same domain logic.
+      </p>
+    </article>
+    <article>
+      <h2>Session-aware layouts</h2>
+      <p>
+        Signed cookies keep your users authenticated while CSRF protection guards form submissions by default.
+      </p>
+    </article>
+    <article>
+      <h2>Interactive snippets</h2>
+      <p>
+        Use HTMX to update portions of the page without a full reload—try toggling entry statuses once you sign in.
+      </p>
+    </article>
+  </section>
+{% endblock %}
