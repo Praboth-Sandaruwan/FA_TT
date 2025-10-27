@@ -1,20 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from importlib import import_module
-
 import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
-from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
+from importlib import import_module
 
 BEGINNER_PACKAGE = "projects.01-beginner"
 
 
 def load_beginner_module(path: str):
     return import_module(f"{BEGINNER_PACKAGE}.{path}")
-
 
 models_module = load_beginner_module("app.models")
 services_module = load_beginner_module("app.services")
@@ -23,31 +17,9 @@ TaskStatus = getattr(models_module, "TaskStatus")
 TaskService = getattr(services_module, "TaskService")
 UserService = getattr(services_module, "UserService")
 
-
-@pytest_asyncio.fixture
-async def engine() -> AsyncIterator[AsyncEngine]:
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as connection:
-        await connection.run_sync(SQLModel.metadata.create_all)
-    try:
-        yield engine
-    finally:
-        await engine.dispose()
+pytestmark = pytest.mark.asyncio
 
 
-@pytest_asyncio.fixture
-async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with session_factory() as session:
-        try:
-            yield session
-        finally:
-            transaction = session.in_transaction()
-            if transaction is not None:
-                await session.rollback()
-
-
-@pytest.mark.asyncio
 async def test_user_service_crud_flow(session: AsyncSession) -> None:
     user_service = UserService(session)
 
@@ -84,7 +56,14 @@ async def test_user_service_crud_flow(session: AsyncSession) -> None:
     assert await user_service.get_user(created.id) is None
 
 
-@pytest.mark.asyncio
+async def test_user_service_update_missing_user_raises(session: AsyncSession) -> None:
+    user_service = UserService(session)
+
+    with pytest.raises(ValueError) as exc_info:
+        await user_service.update_user(9999, full_name="Nope")
+    assert "User 9999 does not exist" in str(exc_info.value)
+
+
 async def test_task_service_crud_flow(session: AsyncSession) -> None:
     user_service = UserService(session)
     task_service = TaskService(session)
@@ -142,9 +121,71 @@ async def test_task_service_crud_flow(session: AsyncSession) -> None:
     assert new_owner_tasks == []
 
 
-@pytest.mark.asyncio
 async def test_task_creation_requires_valid_owner(session: AsyncSession) -> None:
     task_service = TaskService(session)
 
     with pytest.raises(ValueError):
         await task_service.create_task(owner_id=9999, title="Should fail")
+
+
+async def test_task_update_for_owner_requires_ownership(session: AsyncSession) -> None:
+    user_service = UserService(session)
+    task_service = TaskService(session)
+
+    owner = await user_service.create_user(
+        email="owner@example.com",
+        password="example-password",
+        full_name="Owner",
+    )
+    other = await user_service.create_user(
+        email="other@example.com",
+        password="example-password",
+        full_name="Other",
+    )
+    task = await task_service.create_task(owner_id=owner.id, title="Owner task")
+
+    with pytest.raises(PermissionError):
+        await task_service.update_task_for_owner(task.id, other.id, status=TaskStatus.CANCELLED)
+
+
+async def test_task_delete_for_owner_requires_ownership(session: AsyncSession) -> None:
+    user_service = UserService(session)
+    task_service = TaskService(session)
+
+    owner = await user_service.create_user(
+        email="owner2@example.com",
+        password="example-password",
+        full_name="Owner Two",
+    )
+    other = await user_service.create_user(
+        email="other2@example.com",
+        password="example-password",
+        full_name="Other Two",
+    )
+    task = await task_service.create_task(owner_id=owner.id, title="Owner task")
+
+    with pytest.raises(PermissionError):
+        await task_service.delete_task_for_owner(task.id, other.id)
+
+
+async def test_task_delete_returns_false_when_missing(session: AsyncSession) -> None:
+    task_service = TaskService(session)
+
+    deleted = await task_service.delete_task(9999)
+    assert deleted is False
+
+
+async def test_reassign_task_requires_existing_owner(session: AsyncSession) -> None:
+    user_service = UserService(session)
+    task_service = TaskService(session)
+
+    owner = await user_service.create_user(
+        email="owner3@example.com",
+        password="example-password",
+        full_name="Owner Three",
+    )
+    task = await task_service.create_task(owner_id=owner.id, title="Reassign me")
+
+    with pytest.raises(ValueError) as exc_info:
+        await task_service.reassign_task(task.id, owner_id=12345)
+    assert "Owner 12345 does not exist" in str(exc_info.value)
