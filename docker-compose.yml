@@ -262,6 +262,75 @@ services:
         condition: service_healthy
     networks: [stack]
 
+  advanced-app:
+    build:
+      context: .
+      dockerfile: projects/03-advanced/Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_advanced_app
+    ports:
+      - "${ADVANCED_APP_PORT:-8004}:8004"
+    environment:
+      - ADVANCED_REALTIME_TOKEN=${ADVANCED_REALTIME_TOKEN:-change-me-realtime}
+      - ADVANCED_ALLOWED_ORIGINS=${ADVANCED_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      - ADVANCED_ACTIVITY_CHANNEL=${ADVANCED_ACTIVITY_CHANNEL:-advanced:activity}
+      - ADVANCED_REDIS_URL=redis://:${REDIS_PASSWORD:-app}@redis:${REDIS_PORT:-6379}/2
+      - ADVANCED_REDIS_IDEMPOTENCY_PREFIX=${ADVANCED_REDIS_IDEMPOTENCY_PREFIX:-advanced:idempotency}
+      - ADVANCED_REDIS_IDEMPOTENCY_TTL_SECONDS=${ADVANCED_REDIS_IDEMPOTENCY_TTL_SECONDS:-300}
+      - ADVANCED_EVENT_TRANSPORT=rabbitmq
+      - ADVANCED_RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-app}:${RABBITMQ_DEFAULT_PASS:-app}@rabbitmq:${RABBITMQ_PORT:-5672}/
+      - ADVANCED_RABBITMQ_EXCHANGE=${ADVANCED_RABBITMQ_EXCHANGE:-advanced.board.events}
+      - ADVANCED_RABBITMQ_QUEUE=${ADVANCED_RABBITMQ_QUEUE:-advanced.board.events}
+      - ADVANCED_RABBITMQ_RETRY_EXCHANGE=${ADVANCED_RABBITMQ_RETRY_EXCHANGE:-advanced.board.events.retry}
+      - ADVANCED_RABBITMQ_RETRY_QUEUE=${ADVANCED_RABBITMQ_RETRY_QUEUE:-advanced.board.events.retry}
+      - ADVANCED_RABBITMQ_DLQ_EXCHANGE=${ADVANCED_RABBITMQ_DLQ_EXCHANGE:-advanced.board.events.dlq}
+      - ADVANCED_RABBITMQ_DLQ_QUEUE=${ADVANCED_RABBITMQ_DLQ_QUEUE:-advanced.board.events.dlq}
+      - ADVANCED_RABBITMQ_RETRY_DELAY_MS=${ADVANCED_RABBITMQ_RETRY_DELAY_MS:-5000}
+      - ADVANCED_RABBITMQ_MAX_RETRIES=${ADVANCED_RABBITMQ_MAX_RETRIES:-5}
+      - ADVANCED_RABBITMQ_PREFETCH_COUNT=${ADVANCED_RABBITMQ_PREFETCH_COUNT:-16}
+    volumes:
+      - ./src:/srv/app/src
+      - ./projects/03-advanced:/srv/app/projects/03-advanced
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [stack]
+
+  advanced-worker:
+    build:
+      context: .
+      dockerfile: projects/03-advanced/Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_advanced_worker
+    command: ["poetry", "run", "advanced-worker"]
+    restart: unless-stopped
+    environment:
+      - ADVANCED_REALTIME_TOKEN=${ADVANCED_REALTIME_TOKEN:-change-me-realtime}
+      - ADVANCED_ACTIVITY_CHANNEL=${ADVANCED_ACTIVITY_CHANNEL:-advanced:activity}
+      - ADVANCED_REDIS_URL=redis://:${REDIS_PASSWORD:-app}@redis:${REDIS_PORT:-6379}/2
+      - ADVANCED_REDIS_IDEMPOTENCY_PREFIX=${ADVANCED_REDIS_IDEMPOTENCY_PREFIX:-advanced:idempotency}
+      - ADVANCED_REDIS_IDEMPOTENCY_TTL_SECONDS=${ADVANCED_REDIS_IDEMPOTENCY_TTL_SECONDS:-300}
+      - ADVANCED_EVENT_TRANSPORT=rabbitmq
+      - ADVANCED_RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-app}:${RABBITMQ_DEFAULT_PASS:-app}@rabbitmq:${RABBITMQ_PORT:-5672}/
+      - ADVANCED_RABBITMQ_EXCHANGE=${ADVANCED_RABBITMQ_EXCHANGE:-advanced.board.events}
+      - ADVANCED_RABBITMQ_QUEUE=${ADVANCED_RABBITMQ_QUEUE:-advanced.board.events}
+      - ADVANCED_RABBITMQ_RETRY_EXCHANGE=${ADVANCED_RABBITMQ_RETRY_EXCHANGE:-advanced.board.events.retry}
+      - ADVANCED_RABBITMQ_RETRY_QUEUE=${ADVANCED_RABBITMQ_RETRY_QUEUE:-advanced.board.events.retry}
+      - ADVANCED_RABBITMQ_DLQ_EXCHANGE=${ADVANCED_RABBITMQ_DLQ_EXCHANGE:-advanced.board.events.dlq}
+      - ADVANCED_RABBITMQ_DLQ_QUEUE=${ADVANCED_RABBITMQ_DLQ_QUEUE:-advanced.board.events.dlq}
+      - ADVANCED_RABBITMQ_RETRY_DELAY_MS=${ADVANCED_RABBITMQ_RETRY_DELAY_MS:-5000}
+      - ADVANCED_RABBITMQ_MAX_RETRIES=${ADVANCED_RABBITMQ_MAX_RETRIES:-5}
+      - ADVANCED_RABBITMQ_PREFETCH_COUNT=${ADVANCED_RABBITMQ_PREFETCH_COUNT:-16}
+    volumes:
+      - ./src:/srv/app/src
+      - ./projects/03-advanced:/srv/app/projects/03-advanced
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [stack]
+
   rq-dashboard:
     image: eoranged/rq-dashboard:latest
     container_name: ${COMPOSE_PROJECT_NAME:-devstack}_rq_dashboard

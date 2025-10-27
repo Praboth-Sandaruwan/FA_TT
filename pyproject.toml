@@ -22,6 +22,7 @@ sqlmodel = "^0.0.22"
 uvicorn = {extras = ["standard"], version = "^0.38.0"}
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 python-jose = {extras = ["cryptography"], version = "^3.5.0"}
+aio-pika = "^9.5.7"
 
 [tool.poetry.group.dev]
 optional = false
@@ -43,6 +44,7 @@ beginner-app = "projects.01-beginner.app.main:run"
 intermediate-app = "projects.02-intermediate.app.main:run"
 intermediate-worker = "projects.02-intermediate.app.worker:run"
 advanced-app = "projects.03-advanced.app.main:run"
+advanced-worker = "projects.03-advanced.app.worker:run"
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]

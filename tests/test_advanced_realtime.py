@@ -20,6 +20,7 @@ def configure_environment(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("ADVANCED_REALTIME_TOKEN", REALTIME_TOKEN)
     monkeypatch.setenv("ADVANCED_ALLOWED_ORIGINS", "http://localhost")
     monkeypatch.setenv("ADVANCED_WEBSOCKET_MAX_CONNECTIONS", "10")
+    monkeypatch.setenv("ADVANCED_EVENT_TRANSPORT", "memory")
     get_settings.cache_clear()
     asyncio.run(broker.reset())
     try:

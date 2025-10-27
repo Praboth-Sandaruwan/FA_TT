@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends
 from pydantic import Field, field_validator
@@ -25,8 +25,29 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/2"
     board_channel: str = "advanced:board"
     activity_channel: str = "advanced:activity"
+    redis_idempotency_prefix: str = "advanced:idempotency"
+    redis_idempotency_ttl_seconds: int = 300
     sse_heartbeat_seconds: int = 15
     websocket_max_connections: int = 128
+
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+    rabbitmq_exchange: str = "advanced.board.events"
+    rabbitmq_queue: str = "advanced.board.events"
+    rabbitmq_retry_exchange: str = "advanced.board.events.retry"
+    rabbitmq_retry_queue: str = "advanced.board.events.retry"
+    rabbitmq_dlq_exchange: str = "advanced.board.events.dlq"
+    rabbitmq_dlq_queue: str = "advanced.board.events.dlq"
+    rabbitmq_routing_key: str = "boards.activity"
+    rabbitmq_retry_routing_key: str = "boards.activity.retry"
+    rabbitmq_dlq_routing_key: str = "boards.activity.dlq"
+    rabbitmq_retry_delay_ms: int = 5000
+    rabbitmq_max_retries: int = 5
+    rabbitmq_prefetch_count: int = 16
+
+    event_transport: Literal["rabbitmq", "memory"] = "rabbitmq"
+
+    reconnect_initial_delay_seconds: float = 1.5
+    reconnect_max_delay_seconds: float = 10.0
 
     allowed_origins: list[str] = Field(
         default_factory=lambda: [
@@ -35,9 +56,6 @@ class Settings(BaseSettings):
             "http://localhost:5173",
         ]
     )
-
-    reconnect_initial_delay_seconds: float = 1.5
-    reconnect_max_delay_seconds: float = 10.0
 
     @field_validator("allowed_origins", mode="before")
     @classmethod
