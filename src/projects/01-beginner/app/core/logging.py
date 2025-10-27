@@ -7,8 +7,17 @@ import logging.config
 from typing import Any
 
 from .config import Settings
+from .context import get_request_id
 
-_LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+_LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(request_id)s | %(message)s"
+
+
+class RequestContextFilter(logging.Filter):
+    """Attach request correlation identifiers to emitted log records."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = get_request_id()
+        return True
 
 
 def configure_logging(settings: Settings) -> None:
@@ -23,11 +32,15 @@ def configure_logging(settings: Settings) -> None:
                 "datefmt": "%Y-%m-%d %H:%M:%S",
             }
         },
+        "filters": {
+            "request_context": {"()": RequestContextFilter},
+        },
         "handlers": {
             "default": {
                 "class": "logging.StreamHandler",
                 "formatter": "standard",
                 "level": level,
+                "filters": ["request_context"],
             }
         },
         "loggers": {

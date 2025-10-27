@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api.routers import api_router, health_router
 from .core.config import Settings, get_settings
 from .core.logging import configure_logging
+from .core.middleware import CorrelationIdMiddleware
 from .deps import SettingsDependency
 from .errors import register_exception_handlers
 from .schemas.system import RootResponse
@@ -38,6 +39,8 @@ def create_app() -> FastAPI:
     )
 
     application.state.settings = settings
+
+    application.add_middleware(CorrelationIdMiddleware)
 
     application.add_middleware(
         CORSMiddleware,
