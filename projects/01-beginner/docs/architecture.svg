@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="320" viewBox="0 0 780 320" role="img" aria-labelledby="title desc">
+  <title id="title">Beginner FastAPI architecture</title>
+  <desc id="desc">Diagram showing client tools calling FastAPI routers, which invoke the service layer, repository layer, and PostgreSQL database. Shared middleware and logging wrap the app.</desc>
+  <defs>
+    <style>
+      .panel { fill: #f8fbff; stroke: #d0def6; stroke-width: 1; }
+      .box { fill: #eef3ff; stroke: #2f54eb; stroke-width: 2; rx: 12; ry: 12; }
+      .alt { fill: #fff4e6; stroke: #fa8c16; }
+      .db { fill: #f6ffed; stroke: #389e0d; }
+      .label { font-family: "Inter", "Segoe UI", sans-serif; font-size: 16px; fill: #10239e; font-weight: 600; }
+      .text { font-family: "Inter", "Segoe UI", sans-serif; font-size: 13px; fill: #10239e; }
+      .arrow { stroke: #2f54eb; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead); }
+      .arrow-alt { stroke: #fa8c16; stroke-width: 2; fill: none; marker-end: url(#arrowhead-alt); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+      <polygon points="0 0, 10 4, 0 8" fill="#2f54eb" />
+    </marker>
+    <marker id="arrowhead-alt" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+      <polygon points="0 0, 10 4, 0 8" fill="#fa8c16" />
+    </marker>
+  </defs>
+
+  <rect class="panel" x="10" y="10" width="760" height="300" rx="16" ry="16" />
+  <text class="label" x="30" y="46">Beginner FastAPI application</text>
+  <text class="text" x="30" y="70">Async FastAPI service exposing REST endpoints backed by SQLModel and PostgreSQL.</text>
+
+  <g transform="translate(40, 110)">
+    <rect class="box" width="150" height="140" />
+    <text class="label" x="20" y="32">Client tools</text>
+    <text class="text" x="20" y="60">curl / HTTPie</text>
+    <text class="text" x="20" y="82">Browser Swagger UI</text>
+    <text class="text" x="20" y="104">Automated tests</text>
+  </g>
+
+  <g transform="translate(240, 90)">
+    <rect class="box" width="160" height="180" />
+    <text class="label" x="20" y="32">FastAPI routers</text>
+    <text class="text" x="20" y="60">Auth, Tasks, Users,</text>
+    <text class="text" x="20" y="80">Health endpoints</text>
+    <text class="text" x="20" y="110">Validation &amp; serialization</text>
+  </g>
+
+  <g transform="translate(440, 90)">
+    <rect class="box" width="150" height="180" />
+    <text class="label" x="20" y="32">Service layer</text>
+    <text class="text" x="20" y="60">AuthService</text>
+    <text class="text" x="20" y="82">TaskService</text>
+    <text class="text" x="20" y="104">UserService</text>
+    <text class="text" x="20" y="134">Business rules &amp;</text>
+    <text class="text" x="20" y="154">transaction boundaries</text>
+  </g>
+
+  <g transform="translate(620, 90)">
+    <rect class="box" width="130" height="180" />
+    <text class="label" x="20" y="32">Repository layer</text>
+    <text class="text" x="20" y="62">SQLModel +</text>
+    <text class="text" x="20" y="82">SQLAlchemy Core</text>
+    <text class="text" x="20" y="112">AsyncSession</text>
+    <text class="text" x="20" y="142">Queries &amp; flush</text>
+  </g>
+
+  <g transform="translate(600, 230)">
+    <rect class="db" width="170" height="70" rx="16" ry="16" />
+    <text class="label" x="20" y="36">PostgreSQL database</text>
+    <text class="text" x="20" y="58">Users, Tasks, Reports tables</text>
+  </g>
+
+  <g transform="translate(40, 260)">
+    <rect class="alt" width="360" height="42" rx="12" ry="12" />
+    <text class="label" x="18" y="30">Middleware &amp; logging</text>
+    <text class="text" x="210" y="30">Correlation IDs, structured logs</text>
+  </g>
+
+  <line class="arrow" x1="190" y1="180" x2="240" y2="180" />
+  <line class="arrow" x1="400" y1="180" x2="440" y2="180" />
+  <line class="arrow" x1="590" y1="180" x2="620" y2="180" />
+  <path class="arrow" d="M690 270 L690 240" />
+
+  <path class="arrow-alt" d="M400 260 C430 240 470 240 500 260" />
+  <path class="arrow-alt" d="M210 260 C240 240 280 240 310 260" />
+
+  <text class="text" x="210" y="206">HTTP requests</text>
+  <text class="text" x="410" y="206">Domain orchestration</text>
+  <text class="text" x="610" y="206">Persistence</text>
+</svg>
