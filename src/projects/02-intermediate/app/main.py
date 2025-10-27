@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
+from .activity import close_activity_store, init_activity_store
 from .api.routers import api_router, health_router
 from .core.config import Settings, get_settings
 from .core.logging import configure_logging
@@ -78,6 +79,14 @@ def create_app() -> FastAPI:
     application.include_router(health_router)
 
     register_exception_handlers(application)
+
+    @application.on_event("startup")
+    async def _initialise_activity_store() -> None:
+        await init_activity_store()
+
+    @application.on_event("shutdown")
+    async def _dispose_activity_store() -> None:
+        await close_activity_store()
 
     return application
 

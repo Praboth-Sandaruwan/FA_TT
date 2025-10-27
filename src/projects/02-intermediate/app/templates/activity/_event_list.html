@@ -1,0 +1,46 @@
+{% if events %}
+  <ul class="activity-list">
+    {% for event in events %}
+      <li class="activity-item">
+        <div class="activity-item__heading">
+          <span class="activity-item__type">{{ event.action_label }}</span>
+          <time datetime="{{ event.created_at.isoformat() }}">
+            {{ event.created_at.strftime('%Y-%m-%d %H:%M:%S %Z') if event.created_at.tzinfo else event.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+          </time>
+        </div>
+        <div class="activity-item__summary">
+          <strong>{{ event.summary }}</strong>
+          {% if event.user_display_name or event.user_email %}
+            <span class="activity-item__actor">
+              · {{ event.user_display_name or event.user_email }}
+            </span>
+          {% endif %}
+          {% if event.source %}
+            <span class="activity-item__source">· {{ event.source|upper }}</span>
+          {% endif %}
+        </div>
+        {% if event.metadata.task_title or event.metadata.task_id or event.metadata.changes %}
+          <div class="activity-item__meta">
+            {% if event.metadata.task_title %}
+              <div>Task: {{ event.metadata.task_title }}{% if event.metadata.task_id %} (#{{ event.metadata.task_id }}){% endif %}</div>
+            {% elif event.metadata.task_id %}
+              <div>Task #{{ event.metadata.task_id }}</div>
+            {% endif %}
+            {% if event.metadata.status %}
+              <div>Status: {{ event.metadata.status }}</div>
+            {% endif %}
+            {% if event.metadata.changes %}
+              <div class="activity-item__changes">
+                Updated: {% for key, value in event.metadata.changes.items() %}
+                  <span>{{ key }} → {{ value }}</span>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="empty-state">No recent activity yet.</p>
+{% endif %}

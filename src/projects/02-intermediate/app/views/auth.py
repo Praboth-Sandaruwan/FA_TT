@@ -7,6 +7,7 @@ from starlette.responses import RedirectResponse
 from ..core.session import add_flash_message, login_user, logout_user, validate_csrf_token
 from ..core.templates import template_response
 from ..deps import (
+    ActivityServiceDependency,
     AuthenticatedSessionUserDependency,
     DatabaseSessionDependency,
     SessionUserDependency,
@@ -63,6 +64,7 @@ async def login_submit(
     request: Request,
     session: DatabaseSessionDependency,
     settings: SettingsDependency,
+    activity_service: ActivityServiceDependency,
 ) -> object:
     """Handle login form submissions."""
 
@@ -116,6 +118,7 @@ async def login_submit(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
+    await activity_service.record_login(user, source="web")
     login_user(request.session, user.id)
     add_flash_message(request.session, "success", "Welcome back!")
     return RedirectResponse(request.url_for("notes:list_notes"), status_code=303)
