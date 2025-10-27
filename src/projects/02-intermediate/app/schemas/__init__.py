@@ -11,7 +11,7 @@ from .auth import (
     TokenPayload,
 )
 from .system import ErrorResponse, HealthCheckResponse, RootResponse
-from .task import TaskCreate, TaskListResponse, TaskRead, TaskUpdate
+from .task import TaskCreate, TaskListResponse, TaskRead, TaskStatistics, TaskUpdate
 from .user import UserPublic
 
 __all__ = [
@@ -26,6 +26,7 @@ __all__ = [
     "TaskCreate",
     "TaskListResponse",
     "TaskRead",
+    "TaskStatistics",
     "TaskUpdate",
     "TokenPayload",
     "UserPublic",

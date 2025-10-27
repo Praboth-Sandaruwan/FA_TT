@@ -111,3 +111,12 @@ docker compose down -v
 
 - Named volumes are used for Postgres, MongoDB, Redis, and RabbitMQ to persist data across restarts.
 - All services are attached to a shared network named "${COMPOSE_PROJECT_NAME}_net" (defaults to "devstack_net").
+
+## Intermediate app caching
+
+The intermediate FastAPI service includes an optional Redis-backed cache that accelerates read-heavy
+endpoints such as task listings and statistics. Caching can be toggled with the
+`INTERMEDIATE_CACHE_ENABLED` setting, and time-to-live values can be adjusted via
+`INTERMEDIATE_CACHE_TTL_SECONDS`. The application logs cache hits, misses, and invalidations and
+exposes in-memory metrics for instrumentation and tests. All task mutations automatically invalidate
+related cache entries to ensure clients always receive fresh data.

@@ -6,9 +6,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
+from ...core.cache import (
+    TASK_LIST_CACHE_NAMESPACE,
+    TASK_STATISTICS_CACHE_NAMESPACE,
+    cache_get_or_set,
+)
 from ...deps import CurrentUserDependency, DatabaseSessionDependency
 from ...models import TaskStatus, User, UserRole
-from ...schemas import TaskCreate, TaskListResponse, TaskRead, TaskUpdate
+from ...schemas import TaskCreate, TaskListResponse, TaskRead, TaskStatistics, TaskUpdate
 from ...services import TaskService
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -89,17 +94,68 @@ async def list_tasks(
             )
         effective_owner_id = current_user_id
 
-    tasks, total = await service.list_tasks_paginated(
-        owner_id=effective_owner_id,
-        status=status,
-        limit=limit,
-        offset=offset,
+    async def _build_response() -> TaskListResponse:
+        tasks, total = await service.list_tasks_paginated(
+            owner_id=effective_owner_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
+        return TaskListResponse(
+            items=[_map_task(task) for task in tasks],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    owner_fragment = effective_owner_id if effective_owner_id is not None else "all"
+    status_fragment = status.value if status is not None else "all"
+    cache_key = f"owner={owner_fragment}:status={status_fragment}:limit={limit}:offset={offset}"
+    return await cache_get_or_set(
+        namespace=TASK_LIST_CACHE_NAMESPACE,
+        key=cache_key,
+        builder=_build_response,
+        model=TaskListResponse,
     )
-    return TaskListResponse(
-        items=[_map_task(task) for task in tasks],
-        total=total,
-        limit=limit,
-        offset=offset,
+
+
+@router.get(
+    "/statistics",
+    response_model=TaskStatistics,
+    summary="Aggregate task statistics",
+)
+async def get_task_statistics(
+    session: DatabaseSessionDependency,
+    current_user: CurrentUserDependency,
+    owner_id: OwnerQuery = None,
+) -> TaskStatistics:
+    service = TaskService(session)
+    current_user_id = _require_user_id(current_user)
+    effective_owner_id = owner_id
+
+    if not _is_admin(current_user):
+        if owner_id is not None and owner_id != current_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not permitted to view statistics for other owners.",
+            )
+        effective_owner_id = current_user_id
+
+    owner_fragment = effective_owner_id if effective_owner_id is not None else "all"
+
+    async def _build_statistics() -> TaskStatistics:
+        stats = await service.get_task_statistics(effective_owner_id)
+        return TaskStatistics(
+            owner_id=stats.owner_id,
+            total=stats.total,
+            by_status=stats.by_status,
+        )
+
+    return await cache_get_or_set(
+        namespace=TASK_STATISTICS_CACHE_NAMESPACE,
+        key=f"owner={owner_fragment}",
+        builder=_build_statistics,
+        model=TaskStatistics,
     )
 
 
