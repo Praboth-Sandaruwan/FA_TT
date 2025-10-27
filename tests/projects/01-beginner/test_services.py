@@ -51,7 +51,11 @@ async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
 async def test_user_service_crud_flow(session: AsyncSession) -> None:
     user_service = UserService(session)
 
-    created = await user_service.create_user(email="alice@example.com", full_name="Alice")
+    created = await user_service.create_user(
+        email="alice@example.com",
+        password="example-password",
+        full_name="Alice",
+    )
 
     assert created.id is not None
     assert created.email == "alice@example.com"
@@ -85,7 +89,11 @@ async def test_task_service_crud_flow(session: AsyncSession) -> None:
     user_service = UserService(session)
     task_service = TaskService(session)
 
-    owner = await user_service.create_user(email="bob@example.com", full_name="Bob")
+    owner = await user_service.create_user(
+        email="bob@example.com",
+        password="example-password",
+        full_name="Bob",
+    )
     assert owner.id is not None
 
     task = await task_service.create_task(owner_id=owner.id, title="Write docs", description="Initial docs")
@@ -110,7 +118,11 @@ async def test_task_service_crud_flow(session: AsyncSession) -> None:
     in_progress_tasks = await task_service.list_tasks_by_status(TaskStatus.IN_PROGRESS)
     assert len(in_progress_tasks) == 1
 
-    other_user = await user_service.create_user(email="carol@example.com", full_name="Carol")
+    other_user = await user_service.create_user(
+        email="carol@example.com",
+        password="example-password",
+        full_name="Carol",
+    )
     assert other_user.id is not None
 
     reassigned = await task_service.reassign_task(task.id, owner_id=other_user.id)

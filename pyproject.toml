@@ -16,6 +16,8 @@ pydantic-settings = {extras = ["dotenv"], version = "^2.11.0"}
 sqlalchemy = "^2.0.44"
 sqlmodel = "^0.0.22"
 uvicorn = {extras = ["standard"], version = "^0.38.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+python-jose = {extras = ["cryptography"], version = "^3.5.0"}
 
 [tool.poetry.group.dev]
 optional = false
