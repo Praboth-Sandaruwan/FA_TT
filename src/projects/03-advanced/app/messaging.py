@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Awaitable, Callable, Protocol
@@ -19,6 +20,7 @@ from redis.asyncio.client import PubSub
 
 from .config import Settings
 from .realtime import ActivityEvent, BoardMessage, build_activity_event
+from .telemetry import PipelineMetricsRecorder
 
 logger = logging.getLogger(__name__)
 
@@ -335,16 +337,28 @@ class RedisActivitySubscriber:
 class EventPipeline:
     """Coordinates event publication and downstream fan-out."""
 
-    def __init__(self, settings: Settings, handler: EventHandler) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        handler: EventHandler,
+        metrics: PipelineMetricsRecorder | None = None,
+    ) -> None:
         self._settings = settings
         self._handler = handler
         self._publisher: EventPublisher | None = None
         self._subscriber: RedisActivitySubscriber | None = None
+        self._metrics = metrics
+        self._ready = False
+
+    @property
+    def ready(self) -> bool:
+        return self._ready
 
     async def start(self) -> None:
         if self._settings.event_transport == "memory":
             self._publisher = InMemoryEventPublisher(self._handler)
             await self._publisher.start()
+            self._ready = True
             return
 
         self._subscriber = RedisActivitySubscriber(self._settings, self._handler)
@@ -357,6 +371,7 @@ class EventPipeline:
             self._subscriber = None
             raise
         self._publisher = publisher
+        self._ready = True
 
     async def stop(self) -> None:
         if self._publisher:
@@ -365,11 +380,25 @@ class EventPipeline:
         if self._subscriber:
             await self._subscriber.stop()
             self._subscriber = None
+        self._ready = False
 
     async def publish(self, envelope: BoardEventEnvelope) -> None:
         if not self._publisher:
             raise RuntimeError("Event pipeline has not been started.")
-        await self._publisher.publish(envelope)
+        start = time.perf_counter()
+        try:
+            await self._publisher.publish(envelope)
+        except Exception:
+            if self._metrics:
+                self._metrics.record(envelope.board_id, "error", time.perf_counter() - start)
+            raise
+        else:
+            if self._metrics:
+                self._metrics.record(
+                    envelope.board_id,
+                    "success",
+                    time.perf_counter() - start,
+                )
 
 
 __all__ = [

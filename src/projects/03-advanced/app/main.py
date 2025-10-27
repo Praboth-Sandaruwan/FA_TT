@@ -10,7 +10,11 @@ from typing import Annotated, AsyncIterator
 
 from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
@@ -24,6 +28,7 @@ from .realtime import (
     ActivityEvent,
     broker,
 )
+from .telemetry import ObservabilityMiddleware, configure_telemetry, record_rate_limit_rejection
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -36,6 +41,16 @@ def create_app() -> FastAPI:
     """Instantiate and configure the FastAPI application for realtime collaboration."""
 
     settings = get_settings()
+    telemetry_state = configure_telemetry(settings)
+
+    default_limits = [settings.rate_limit_default] if settings.rate_limit_default else []
+    limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=default_limits or None,
+        storage_uri=settings.rate_limit_storage_uri,
+        headers_enabled=settings.rate_limit_headers_enabled,
+    )
+
     app = FastAPI(
         title=settings.project_name,
         version=settings.version,
@@ -45,17 +60,34 @@ def create_app() -> FastAPI:
     )
 
     app.state.settings = settings
+    app.state.telemetry = telemetry_state
+    app.state.limiter = limiter
 
-    pipeline = EventPipeline(settings, broker.broadcast)
+    pipeline = EventPipeline(settings, broker.broadcast, metrics=telemetry_state.pipeline_metrics)
     app.state.event_pipeline = pipeline
+    app.state.event_pipeline_ready = False
 
     @app.on_event("startup")
     async def start_event_pipeline() -> None:
         await pipeline.start()
+        app.state.event_pipeline_ready = pipeline.ready
 
     @app.on_event("shutdown")
     async def stop_event_pipeline() -> None:
         await pipeline.stop()
+        app.state.event_pipeline_ready = pipeline.ready
+
+    async def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+        record_rate_limit_rejection(telemetry_state, request)
+        headers = getattr(exc, "headers", None) or {}
+        detail = getattr(exc, "detail", None) or "Rate limit exceeded"
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"detail": detail},
+            headers=headers,
+        )
+
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 
     app.add_middleware(
         CORSMiddleware,
@@ -64,6 +96,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    app.add_middleware(SlowAPIMiddleware)
+    if telemetry_state.enabled:
+        app.add_middleware(ObservabilityMiddleware, telemetry=telemetry_state)
 
     if STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="advanced-static")
@@ -99,11 +135,31 @@ def create_app() -> FastAPI:
         }
         return templates.TemplateResponse("index.html", context)
 
+    @app.get(settings.metrics_path, include_in_schema=False)
+    @limiter.exempt
+    async def metrics_endpoint() -> Response:
+        return telemetry_state.metrics_response()
+
     @app.get("/healthz", summary="Application liveness probe")
+    @limiter.exempt
     async def healthcheck() -> dict[str, str]:
         return {"status": "ok"}
 
+    @app.get("/readyz", summary="Application readiness probe")
+    @limiter.exempt
+    async def readiness() -> dict[str, str | bool]:
+        pipeline_ready = pipeline.ready
+        status_value = "ready" if pipeline_ready else "starting"
+        return {"status": status_value, "event_pipeline_ready": pipeline_ready}
+
+    if settings.activity_stream_rate_limit:
+        activity_limit_decorator = limiter.limit(settings.activity_stream_rate_limit)
+    else:
+        def activity_limit_decorator(func):
+            return func
+
     @app.get("/sse/activity")
+    @activity_limit_decorator
     async def activity_stream(
         request: Request,
         _: Annotated[str, Depends(validate_http_token)],

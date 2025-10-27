@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: advanced-app
+    honor_labels: true
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - advanced-app:8004
