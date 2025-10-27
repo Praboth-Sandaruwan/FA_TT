@@ -1,0 +1,33 @@
+%% Request lifecycle for the intermediate SSR surface.
+sequenceDiagram
+    autonumber
+    participant Browser
+    participant View as FastAPI SSR layer
+    participant Session as Session middleware
+    participant Cache as Redis cache
+    participant Service as TaskService
+    participant Postgres
+
+    Browser->>View: GET /notes
+    View->>Session: SessionUserDependency + CSRF bootstrap
+    Session-->>View: Authenticated user context
+    View->>Cache: cache_get_or_set(tasks:list,…)
+    Cache-->>View: Cache miss
+    View->>Service: list_tasks_for_owner(user_id)
+    Service->>Postgres: SELECT tasks
+    Postgres-->>Service: Task rows
+    Service-->>View: Task collection
+    View->>Cache: Store paginated payload
+    View->>Browser: Render notes/index.html
+
+    rect rgb(245, 245, 245)
+        Browser->>View: POST /notes/{task_id}/toggle (HX-Request)
+        View->>Session: validate_csrf_token
+        Session-->>View: Token accepted
+        View->>Service: update_task_for_owner()
+        Service->>Postgres: UPDATE tasks SET status
+        Postgres-->>Service: Updated row
+        Service-->>View: Updated task entity
+        View->>Cache: invalidate_task_cache()
+        View->>Browser: Render notes/_note_item.html fragment
+    end

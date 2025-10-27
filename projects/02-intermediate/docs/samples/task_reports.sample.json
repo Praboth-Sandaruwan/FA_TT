@@ -1,0 +1,32 @@
+[
+  {
+    "owner_id": 1,
+    "owner_email": "demo@example.com",
+    "generated_at": "2024-07-01T12:00:00Z",
+    "total_tasks": 3,
+    "pending_tasks": 1,
+    "in_progress_tasks": 1,
+    "completed_tasks": 1,
+    "cancelled_tasks": 0,
+    "source": {
+      "job_id": "task-report:1:sample",
+      "created_from": "seed",
+      "synced_at": "2024-07-01T12:05:00Z"
+    }
+  },
+  {
+    "owner_id": 2,
+    "owner_email": "analyst@example.com",
+    "generated_at": "2024-07-01T12:00:00Z",
+    "total_tasks": 5,
+    "pending_tasks": 2,
+    "in_progress_tasks": 2,
+    "completed_tasks": 1,
+    "cancelled_tasks": 0,
+    "source": {
+      "job_id": "task-report:2:sample",
+      "created_from": "sample",
+      "synced_at": "2024-07-01T12:05:00Z"
+    }
+  }
+]

@@ -1,0 +1,21 @@
+%% Background job processing pipeline for task reports.
+sequenceDiagram
+    autonumber
+    participant Client
+    participant API as FastAPI /api/jobs/task-report
+    participant Queue as Redis queue (RQ)
+    participant Worker as RQ worker
+    participant Postgres as Postgres (SQLModel)
+    participant Mongo as Mongo analytics (optional)
+
+    Client->>API: POST /api/jobs/task-report
+    API->>Queue: enqueue_task_report(owner_id, request_id)
+    API-->>Client: 202 Accepted + job metadata
+    Queue->>Worker: Dispatch generate_task_report_job
+    Worker->>Postgres: TaskReportService.generate_report()
+    Postgres-->>Worker: Aggregated counts
+    Worker->>Postgres: UPSERT task_reports snapshot
+    Worker-->>Queue: Mark job finished
+
+    Note over Worker,Mongo: Optional analytics sync via mongoimport sample data
+    Worker-->>Mongo: Upsert analytics.task_reports document (manual step)
