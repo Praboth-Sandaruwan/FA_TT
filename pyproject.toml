@@ -14,6 +14,7 @@ fastapi = "^0.120.0"
 httpx = "^0.27.0"
 pydantic-settings = {extras = ["dotenv"], version = "^2.11.0"}
 redis = "^5.0.7"
+rq = "^1.16.2"
 sqlalchemy = "^2.0.44"
 sqlmodel = "^0.0.22"
 uvicorn = {extras = ["standard"], version = "^0.38.0"}
@@ -37,6 +38,7 @@ ruff = "^0.7.1"
 [tool.poetry.scripts]
 beginner-app = "projects.01-beginner.app.main:run"
 intermediate-app = "projects.02-intermediate.app.main:run"
+intermediate-worker = "projects.02-intermediate.app.worker:run"
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]

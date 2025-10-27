@@ -11,6 +11,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from .common import TimestampMixin
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+    from .report import TaskReport
     from .task import Task
 
 
@@ -69,6 +70,10 @@ class User(UserBase, TimestampMixin, table=True):
     tasks: list["Task"] = Relationship(
         back_populates="owner",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    task_report: "TaskReport | None" = Relationship(
+        back_populates="owner",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "uselist": False},
     )
 
 

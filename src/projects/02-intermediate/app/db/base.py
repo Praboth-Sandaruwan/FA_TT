@@ -5,6 +5,6 @@ from __future__ import annotations
 from sqlmodel import SQLModel
 
 # Import models so that SQLModel.metadata is populated for Alembic.
-from ..models import Task, User  # noqa: F401
+from ..models import Task, TaskReport, User  # noqa: F401
 
-__all__ = ["SQLModel", "Task", "User"]
+__all__ = ["SQLModel", "Task", "TaskReport", "User"]

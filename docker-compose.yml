@@ -182,6 +182,98 @@ services:
         condition: service_healthy
     networks: [stack]
 
+  intermediate-app:
+    build:
+      context: .
+      dockerfile: projects/02-intermediate/Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_intermediate
+    ports:
+      - "${INTERMEDIATE_APP_PORT:-8003}:8003"
+    environment:
+      - INTERMEDIATE_PROJECT_NAME=${INTERMEDIATE_PROJECT_NAME:-Intermediate FastAPI}
+      - INTERMEDIATE_ENVIRONMENT=${INTERMEDIATE_ENVIRONMENT:-development}
+      - INTERMEDIATE_VERSION=${INTERMEDIATE_VERSION:-0.1.0}
+      - INTERMEDIATE_API_PREFIX=${INTERMEDIATE_API_PREFIX:-/api}
+      - INTERMEDIATE_APP_HOST=0.0.0.0
+      - INTERMEDIATE_APP_PORT=${INTERMEDIATE_APP_PORT:-8003}
+      - INTERMEDIATE_RELOAD=${INTERMEDIATE_RELOAD:-true}
+      - INTERMEDIATE_LOG_LEVEL=${INTERMEDIATE_LOG_LEVEL:-INFO}
+      - INTERMEDIATE_DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-app_db}
+      - INTERMEDIATE_DB_ECHO=${INTERMEDIATE_DB_ECHO:-false}
+      - INTERMEDIATE_REDIS_URL=redis://:${REDIS_PASSWORD:-app}@redis:${REDIS_PORT:-6379}/0
+      - INTERMEDIATE_JOB_QUEUE_NAME=${INTERMEDIATE_JOB_QUEUE_NAME:-intermediate:tasks}
+      - INTERMEDIATE_JOB_WORKER_NAME=${INTERMEDIATE_JOB_WORKER_NAME:-intermediate-worker}
+      - INTERMEDIATE_JOB_TIMEOUT_SECONDS=${INTERMEDIATE_JOB_TIMEOUT_SECONDS:-300}
+      - INTERMEDIATE_JOB_RESULT_TTL_SECONDS=${INTERMEDIATE_JOB_RESULT_TTL_SECONDS:-600}
+      - INTERMEDIATE_JOB_MAX_RETRIES=${INTERMEDIATE_JOB_MAX_RETRIES:-3}
+      - INTERMEDIATE_JOB_RETRY_BACKOFF_SECONDS=${INTERMEDIATE_JOB_RETRY_BACKOFF_SECONDS:-5,15,30}
+      - INTERMEDIATE_JWT_SECRET_KEY=${INTERMEDIATE_JWT_SECRET_KEY:-change-me}
+      - INTERMEDIATE_JWT_REFRESH_SECRET_KEY=${INTERMEDIATE_JWT_REFRESH_SECRET_KEY:-change-me-refresh}
+      - INTERMEDIATE_JWT_ALGORITHM=${INTERMEDIATE_JWT_ALGORITHM:-HS256}
+      - INTERMEDIATE_ACCESS_TOKEN_EXPIRE_MINUTES=${INTERMEDIATE_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - INTERMEDIATE_REFRESH_TOKEN_EXPIRE_MINUTES=${INTERMEDIATE_REFRESH_TOKEN_EXPIRE_MINUTES:-1440}
+      - INTERMEDIATE_SESSION_SECRET_KEY=${INTERMEDIATE_SESSION_SECRET_KEY:-change-me-session}
+      - INTERMEDIATE_SESSION_COOKIE_NAME=${INTERMEDIATE_SESSION_COOKIE_NAME:-intermediate_session}
+      - INTERMEDIATE_SESSION_MAX_AGE=${INTERMEDIATE_SESSION_MAX_AGE:-1209600}
+      - INTERMEDIATE_SESSION_HTTPS_ONLY=${INTERMEDIATE_SESSION_HTTPS_ONLY:-false}
+      - INTERMEDIATE_SESSION_SAME_SITE=${INTERMEDIATE_SESSION_SAME_SITE:-lax}
+      - INTERMEDIATE_ALLOWED_ORIGINS=${INTERMEDIATE_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      - INTERMEDIATE_ALLOW_CREDENTIALS=${INTERMEDIATE_ALLOW_CREDENTIALS:-true}
+      - INTERMEDIATE_ALLOW_METHODS=${INTERMEDIATE_ALLOW_METHODS:-*}
+      - INTERMEDIATE_ALLOW_HEADERS=${INTERMEDIATE_ALLOW_HEADERS:-*}
+    volumes:
+      - ./src:/srv/app/src
+      - ./projects/02-intermediate:/srv/app/projects/02-intermediate
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [stack]
+
+  intermediate-worker:
+    build:
+      context: .
+      dockerfile: projects/02-intermediate/Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_intermediate_worker
+    command: ["poetry", "run", "intermediate-worker"]
+    restart: unless-stopped
+    environment:
+      - INTERMEDIATE_PROJECT_NAME=${INTERMEDIATE_PROJECT_NAME:-Intermediate FastAPI}
+      - INTERMEDIATE_ENVIRONMENT=${INTERMEDIATE_ENVIRONMENT:-development}
+      - INTERMEDIATE_VERSION=${INTERMEDIATE_VERSION:-0.1.0}
+      - INTERMEDIATE_API_PREFIX=${INTERMEDIATE_API_PREFIX:-/api}
+      - INTERMEDIATE_DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-app_db}
+      - INTERMEDIATE_DB_ECHO=${INTERMEDIATE_DB_ECHO:-false}
+      - INTERMEDIATE_REDIS_URL=redis://:${REDIS_PASSWORD:-app}@redis:${REDIS_PORT:-6379}/0
+      - INTERMEDIATE_JOB_QUEUE_NAME=${INTERMEDIATE_JOB_QUEUE_NAME:-intermediate:tasks}
+      - INTERMEDIATE_JOB_WORKER_NAME=${INTERMEDIATE_JOB_WORKER_NAME:-intermediate-worker}
+      - INTERMEDIATE_JOB_TIMEOUT_SECONDS=${INTERMEDIATE_JOB_TIMEOUT_SECONDS:-300}
+      - INTERMEDIATE_JOB_RESULT_TTL_SECONDS=${INTERMEDIATE_JOB_RESULT_TTL_SECONDS:-600}
+      - INTERMEDIATE_JOB_MAX_RETRIES=${INTERMEDIATE_JOB_MAX_RETRIES:-3}
+      - INTERMEDIATE_JOB_RETRY_BACKOFF_SECONDS=${INTERMEDIATE_JOB_RETRY_BACKOFF_SECONDS:-5,15,30}
+    volumes:
+      - ./src:/srv/app/src
+      - ./projects/02-intermediate:/srv/app/projects/02-intermediate
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [stack]
+
+  rq-dashboard:
+    image: eoranged/rq-dashboard:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-devstack}_rq_dashboard
+    ports:
+      - "${RQ_DASHBOARD_PORT:-9181}:9181"
+    environment:
+      - RQ_DASHBOARD_REDIS_URL=redis://:${REDIS_PASSWORD:-app}@redis:${REDIS_PORT:-6379}/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [stack]
+
 networks:
   stack:
     name: ${COMPOSE_PROJECT_NAME:-devstack}_net
