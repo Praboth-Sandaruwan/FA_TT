@@ -1,17 +1,10 @@
 from __future__ import annotations
 
-from importlib import import_module
-
 import pytest
-import pytest_asyncio
-from collections.abc import AsyncIterator
-from fastapi import FastAPI
 from httpx import AsyncClient
 from jose import jwt
-from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel
-from sqlmodel.ext.asyncio.session import AsyncSession
+from typing import Callable
+from importlib import import_module
 
 BEGINNER_PACKAGE = "projects.01-beginner"
 
@@ -19,79 +12,18 @@ BEGINNER_PACKAGE = "projects.01-beginner"
 def load_beginner_module(path: str):
     return import_module(f"{BEGINNER_PACKAGE}.{path}")
 
-
 config_module = load_beginner_module("app.core.config")
-deps_module = load_beginner_module("app.deps")
-main_module = load_beginner_module("app.main")
 models_module = load_beginner_module("app.models")
 security_module = load_beginner_module("app.core.security")
-services_module = load_beginner_module("app.services")
 
-create_app = getattr(main_module, "create_app")
 get_settings = getattr(config_module, "get_settings")
-get_db_session = getattr(deps_module, "get_db_session")
-UserRole = getattr(models_module, "UserRole")
-UserService = getattr(services_module, "UserService")
 TokenType = getattr(security_module, "TokenType")
+decode_token = getattr(security_module, "decode_token")
+UserRole = getattr(models_module, "UserRole")
+
+pytestmark = pytest.mark.asyncio
 
 
-@pytest_asyncio.fixture
-async def engine() -> AsyncIterator[AsyncEngine]:
-    engine: AsyncEngine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    async with engine.begin() as connection:
-        await connection.run_sync(SQLModel.metadata.create_all)
-    try:
-        yield engine
-    finally:
-        await engine.dispose()
-
-
-@pytest_asyncio.fixture
-async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with session_factory() as session:
-        try:
-            yield session
-        finally:
-            transaction = session.in_transaction()
-            if transaction is not None:
-                await session.rollback()
-
-
-@pytest_asyncio.fixture
-async def app(session: AsyncSession) -> AsyncIterator[FastAPI]:
-    get_settings.cache_clear()
-    settings = get_settings()
-    original_access = settings.access_token_expire_minutes
-    original_refresh = settings.refresh_token_expire_minutes
-    app = create_app()
-
-    async def _override_db_session():
-        yield session
-
-    app.dependency_overrides[get_db_session] = _override_db_session
-    settings.access_token_expire_minutes = 5
-    settings.refresh_token_expire_minutes = 60
-
-    try:
-        yield app
-    finally:
-        app.dependency_overrides.clear()
-        settings.access_token_expire_minutes = original_access
-        settings.refresh_token_expire_minutes = original_refresh
-
-
-@pytest_asyncio.fixture
-async def client(app) -> AsyncIterator[AsyncClient]:
-    async with AsyncClient(app=app, base_url="http://testserver") as client:
-        yield client
-
-
-@pytest.mark.asyncio
 async def test_signup_login_refresh_flow(client: AsyncClient) -> None:
     settings = get_settings()
     signup_payload = {
@@ -128,9 +60,9 @@ async def test_signup_login_refresh_flow(client: AsyncClient) -> None:
         json={"refresh_token": login_tokens["refresh_token"]},
     )
     assert refresh_response.status_code == 200
-    refreshed = refresh_response.json()["tokens"]
-    assert refreshed["access_token"] != login_tokens["access_token"]
-    assert refreshed["refresh_token"] != login_tokens["refresh_token"]
+    refreshed_tokens = refresh_response.json()["tokens"]
+    assert refreshed_tokens["access_token"] != login_tokens["access_token"]
+    assert refreshed_tokens["refresh_token"] != login_tokens["refresh_token"]
 
     reuse_response = await client.post(
         "/api/auth/refresh",
@@ -141,13 +73,12 @@ async def test_signup_login_refresh_flow(client: AsyncClient) -> None:
 
     me_response = await client.get(
         "/api/users/me",
-        headers={"Authorization": f"Bearer {refreshed['access_token']}"},
+        headers={"Authorization": f"Bearer {refreshed_tokens['access_token']}"},
     )
     assert me_response.status_code == 200
     assert me_response.json()["email"] == signup_payload["email"]
 
 
-@pytest.mark.asyncio
 async def test_login_invalid_credentials(client: AsyncClient) -> None:
     response = await client.post(
         "/api/auth/login",
@@ -157,50 +88,43 @@ async def test_login_invalid_credentials(client: AsyncClient) -> None:
     assert response.json()["detail"] == "Incorrect email or password."
 
 
-@pytest.mark.asyncio
+async def test_signup_duplicate_email(client: AsyncClient) -> None:
+    payload = {
+        "email": "duplicate@example.com",
+        "password": "AnotherStrongPass123!",
+        "full_name": "Duplicate User",
+    }
+    first = await client.post("/api/auth/signup", json=payload)
+    assert first.status_code == 201
+
+    second = await client.post("/api/auth/signup", json=payload)
+    assert second.status_code == 400
+    assert second.json()["detail"] == "Email is already registered."
+
+
+async def test_login_inactive_user(client: AsyncClient, authenticated_user: Callable[..., "AuthenticatedUser"]) -> None:
+    inactive_user = await authenticated_user(is_active=False, login=False)
+
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": inactive_user.email, "password": inactive_user.password},
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "User account is inactive."
+
+
 async def test_protected_routes_require_correct_roles(
     client: AsyncClient,
-    session: AsyncSession,
+    authenticated_user: Callable[..., "AuthenticatedUser"],
 ) -> None:
-    user_service = UserService(session)
-    admin_email = "admin@example.com"
-    admin_password = "AdminPass123!"
-    await user_service.create_user(
-        email=admin_email,
-        password=admin_password,
-        full_name="Admin User",
-        role=UserRole.ADMIN,
-    )
+    admin = await authenticated_user(role=UserRole.ADMIN)
+    regular_user = await authenticated_user()
 
-    login_response = await client.post(
-        "/api/auth/login",
-        data={"username": admin_email, "password": admin_password},
-    )
-    assert login_response.status_code == 200
-    admin_token = login_response.json()["tokens"]["access_token"]
-
-    admin_response = await client.get(
-        "/api/users/admin",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    admin_response = await client.get("/api/users/admin", headers=admin.headers)
     assert admin_response.status_code == 200
-    assert admin_response.json()["email"] == admin_email
+    assert admin_response.json()["email"] == admin.email
 
-    user_signup = await client.post(
-        "/api/auth/signup",
-        json={
-            "email": "user@example.com",
-            "password": "UserPass123!",
-            "full_name": "Regular User",
-        },
-    )
-    assert user_signup.status_code == 201
-    user_access_token = user_signup.json()["tokens"]["access_token"]
-
-    forbidden_response = await client.get(
-        "/api/users/admin",
-        headers={"Authorization": f"Bearer {user_access_token}"},
-    )
+    forbidden_response = await client.get("/api/users/admin", headers=regular_user.headers)
     assert forbidden_response.status_code == 403
     assert forbidden_response.json()["detail"] == "Not enough permissions."
 
@@ -209,7 +133,6 @@ async def test_protected_routes_require_correct_roles(
     assert unauthenticated_response.json()["detail"] == "Could not validate credentials."
 
 
-@pytest.mark.asyncio
 async def test_refresh_with_expired_token(client: AsyncClient) -> None:
     settings = get_settings()
     original_refresh = settings.refresh_token_expire_minutes
@@ -233,3 +156,25 @@ async def test_refresh_with_expired_token(client: AsyncClient) -> None:
         assert refresh_response.json()["detail"] == "Refresh token has expired."
     finally:
         settings.refresh_token_expire_minutes = original_refresh
+
+
+async def test_refresh_rejects_access_token(
+    client: AsyncClient,
+    authenticated_user: Callable[..., "AuthenticatedUser"],
+) -> None:
+    user = await authenticated_user()
+    settings = get_settings()
+    payload = decode_token(
+        token=user.refresh_token,
+        secret=settings.jwt_refresh_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+    payload["type"] = TokenType.ACCESS.value
+    forged_token = jwt.encode(payload, settings.jwt_refresh_secret_key, algorithm=settings.jwt_algorithm)
+
+    response = await client.post(
+        "/api/auth/refresh",
+        json={"refresh_token": forged_token},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid token type for refresh."
