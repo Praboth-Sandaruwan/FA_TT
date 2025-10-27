@@ -17,6 +17,9 @@
         <a class="brand" href="{{ url_for('pages:home') }}">{{ settings.project_name }}</a>
         <nav class="primary-nav">
           <a href="{{ url_for('notes:list_notes') }}">Entries</a>
+          {% if current_user %}
+            <a href="{{ url_for('activity:index') }}">Activity</a>
+          {% endif %}
         </nav>
         <div class="auth-actions">
           {% if current_user %}

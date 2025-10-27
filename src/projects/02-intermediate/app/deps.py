@@ -9,6 +9,7 @@ from jose import JWTError
 from pydantic import ValidationError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from .activity import ActivityLogService
 from .core.config import Settings, get_settings
 from .core.security import TokenType, decode_token, is_token_blacklisted
 from .core.session import get_session_user_id
@@ -19,6 +20,13 @@ from .schemas.auth import TokenPayload
 
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
 DatabaseSessionDependency = Annotated[AsyncSession, Depends(get_session)]
+
+
+def get_activity_log_service() -> ActivityLogService:
+    return ActivityLogService()
+
+
+ActivityServiceDependency = Annotated[ActivityLogService, Depends(get_activity_log_service)]
 
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -138,12 +146,14 @@ AuthenticatedSessionUserDependency = Annotated[User, Depends(require_session_use
 
 
 __all__ = [
+    "ActivityServiceDependency",
     "AdminUserDependency",
     "AuthenticatedSessionUserDependency",
     "CurrentUserDependency",
     "DatabaseSessionDependency",
     "SessionUserDependency",
     "SettingsDependency",
+    "get_activity_log_service",
     "get_db_session",
     "get_session_user",
     "require_current_user",

@@ -80,6 +80,9 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://app:app@localhost:5432/app_db",
         alias="DATABASE_URL",
     )
+    mongo_url: str = Field(default="mongodb://localhost:27017", alias="MONGO_URL")
+    mongo_database: str = Field(default="intermediate_app", alias="MONGO_DATABASE")
+    activity_ttl_seconds: int = Field(default=60 * 60 * 24, alias="ACTIVITY_TTL_SECONDS")
     cors_allow_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"],
         alias="ALLOWED_ORIGINS",
@@ -148,6 +151,15 @@ class Settings(BaseSettings):
         except (TypeError, ValueError):
             return 60
         return max(ttl, 0)
+
+    @field_validator("activity_ttl_seconds", mode="before")
+    @classmethod
+    def _normalise_activity_ttl(cls, value: object) -> int:
+        try:
+            ttl = int(value)
+        except (TypeError, ValueError):
+            return 60 * 60 * 24
+        return max(ttl, 1)
 
     @field_validator(
         "cors_allow_origins",

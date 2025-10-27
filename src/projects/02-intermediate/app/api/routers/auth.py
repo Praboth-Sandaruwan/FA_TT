@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from ...core.config import Settings
-from ...deps import DatabaseSessionDependency, SettingsDependency
+from ...deps import ActivityServiceDependency, DatabaseSessionDependency, SettingsDependency
 from ...models import User
 from ...schemas import (
     AuthResponse,
@@ -66,6 +66,7 @@ async def signup(
 async def login(
     session: DatabaseSessionDependency,
     settings: SettingsDependency,
+    activity_service: ActivityServiceDependency,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ) -> AuthResponse:
     service = AuthService(session, settings)
@@ -79,6 +80,7 @@ async def login(
         )
 
     token_pair = service.build_token_pair(user)
+    await activity_service.record_login(user, source="api")
     return AuthResponse(user=_map_user(user), tokens=_build_tokens(token_pair, settings))
 
 

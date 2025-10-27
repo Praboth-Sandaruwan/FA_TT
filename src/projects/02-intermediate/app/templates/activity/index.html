@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Activity{% endblock %}
+
+{% block content %}
+  <section class="activity">
+    <header class="page-header">
+      <h1>Recent activity</h1>
+      <p class="page-subtitle">Latest sign-ins and task changes.</p>
+    </header>
+    <div
+      id="activity-feed"
+      hx-get="{{ url_for('activity:feed', limit=limit) }}"
+      hx-trigger="load, every 5s"
+      hx-target="#activity-feed"
+      hx-swap="innerHTML"
+    >
+      {% include "activity/_event_list.html" %}
+    </div>
+  </section>
+{% endblock %}

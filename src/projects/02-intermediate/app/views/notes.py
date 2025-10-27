@@ -5,7 +5,7 @@ from starlette.responses import RedirectResponse
 
 from ..core.session import add_flash_message, validate_csrf_token
 from ..core.templates import is_htmx_request, partial_response, template_response
-from ..deps import AuthenticatedSessionUserDependency, DatabaseSessionDependency
+from ..deps import ActivityServiceDependency, AuthenticatedSessionUserDependency, DatabaseSessionDependency
 from ..models import TaskStatus
 from ..services import TaskService
 
@@ -58,6 +58,7 @@ async def create_note(
     request: Request,
     current_user: AuthenticatedSessionUserDependency,
     session: DatabaseSessionDependency,
+    activity_service: ActivityServiceDependency,
 ) -> object:
     """Persist a new note for the authenticated user."""
 
@@ -90,12 +91,13 @@ async def create_note(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    await service.create_task(
+    task = await service.create_task(
         owner_id=user_id,
         title=title,
         description=description or None,
         status=TaskStatus.PENDING,
     )
+    await activity_service.record_task_created(actor=current_user, task=task, source="web")
     add_flash_message(request.session, "success", "Entry created successfully.")
     return _redirect_to_notes(request)
 
@@ -106,6 +108,7 @@ async def toggle_status(
     request: Request,
     current_user: AuthenticatedSessionUserDependency,
     session: DatabaseSessionDependency,
+    activity_service: ActivityServiceDependency,
 ) -> object:
     """Toggle a note between pending and completed states."""
 
@@ -124,6 +127,13 @@ async def toggle_status(
         task_id,
         user_id,
         status=new_status,
+    )
+
+    await activity_service.record_task_updated(
+        actor=current_user,
+        task=task,
+        source="web",
+        changes={"status": new_status},
     )
 
     context = {

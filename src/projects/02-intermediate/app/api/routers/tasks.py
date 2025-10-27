@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
@@ -11,7 +11,7 @@ from ...core.cache import (
     TASK_STATISTICS_CACHE_NAMESPACE,
     cache_get_or_set,
 )
-from ...deps import CurrentUserDependency, DatabaseSessionDependency
+from ...deps import ActivityServiceDependency, CurrentUserDependency, DatabaseSessionDependency
 from ...models import TaskStatus, User, UserRole
 from ...schemas import TaskCreate, TaskListResponse, TaskRead, TaskStatistics, TaskUpdate
 from ...services import TaskService
@@ -67,6 +67,16 @@ def _is_admin(user: User) -> bool:
 
 def _map_task(task) -> TaskRead:
     return TaskRead.model_validate(task)
+
+
+def _serialise_updates(updates: dict[str, Any]) -> dict[str, Any]:
+    cleaned: dict[str, Any] = {}
+    for key, value in updates.items():
+        if isinstance(value, TaskStatus):
+            cleaned[key] = value.value
+        else:
+            cleaned[key] = value
+    return cleaned
 
 
 @router.get(
@@ -194,6 +204,7 @@ async def create_task(
     payload: TaskCreate,
     session: DatabaseSessionDependency,
     current_user: CurrentUserDependency,
+    activity_service: ActivityServiceDependency,
 ) -> TaskRead:
     service = TaskService(session)
     current_user_id = _require_user_id(current_user)
@@ -208,6 +219,7 @@ async def create_task(
     except ValueError as exc:  # pragma: no cover - defensive guard
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
+    await activity_service.record_task_created(actor=current_user, task=task, source="api")
     return _map_task(task)
 
 
@@ -221,9 +233,11 @@ async def update_task(
     payload: TaskUpdate,
     session: DatabaseSessionDependency,
     current_user: CurrentUserDependency,
+    activity_service: ActivityServiceDependency,
 ) -> TaskRead:
     service = TaskService(session)
     updates = payload.model_dump(exclude_unset=True)
+    changes = _serialise_updates(updates)
 
     try:
         if _is_admin(current_user):
@@ -239,6 +253,12 @@ async def update_task(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
+    await activity_service.record_task_updated(
+        actor=current_user,
+        task=task,
+        source="api",
+        changes=changes,
+    )
     return _map_task(task)
 
 
