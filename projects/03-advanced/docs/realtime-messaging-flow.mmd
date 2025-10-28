@@ -1,0 +1,23 @@
+%% Advanced realtime messaging flow
+sequenceDiagram
+    autonumber
+    participant Client as Browser/Websocket client
+    participant API as FastAPI realtime API
+    participant Pipeline as EventPipeline
+    participant RabbitMQ as RabbitMQ exchange + queue
+    participant Worker as advanced-worker
+    participant Redis as Redis pub/sub
+    participant Subscriber as RedisActivitySubscriber
+    participant Broker as RealtimeBroker
+    participant SSE as SSE stream subscribers
+
+    Client->>API: WebSocket JSON payload
+    API->>Pipeline: Validate + publish(BoardEventEnvelope)
+    Pipeline->>RabbitMQ: Persist message (boards.activity)
+    Worker->>RabbitMQ: Consume delivery
+    Worker->>Redis: Publish ActivityEvent (advanced:activity)
+    Redis->>Subscriber: Notify via pub/sub
+    Subscriber->>Broker: broker.broadcast(ActivityEvent)
+    Broker->>Client: send_json(ActivityEvent)
+    Broker->>SSE: Queue ActivityEvent for SSE stream
+    API-->>SSE: Server-Sent Event heartbeat/data

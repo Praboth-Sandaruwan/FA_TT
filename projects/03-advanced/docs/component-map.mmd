@@ -1,0 +1,40 @@
+%% Advanced realtime component diagram
+flowchart TD
+    subgraph Clients
+        Browser[Realtime board UI]
+        Automation[Automation scripts]
+    end
+
+    subgraph FastAPI[FastAPI advanced-app]
+        WS[WebSocket endpoint /ws/boards/{id}]
+        SSE[/SSE endpoint /sse/activity/]
+        Pipeline[EventPipeline + rate limits]
+        Auth[Token auth + security headers]
+        Telemetry[Observability middleware]
+    end
+
+    subgraph Messaging[Messaging + fan-out]
+        Rabbit[(RabbitMQ exchanges & queues)]
+        Worker[advanced-worker]
+        Redis[(Redis pub/sub + idempotency store)]
+    end
+
+    subgraph Observability
+        Prom[Prometheus metrics]
+        Grafana[Grafana dashboards]
+        Jaeger[Jaeger tracing]
+    end
+
+    Browser -- WebSocket --> WS
+    Browser -- EventSource --> SSE
+    Automation -- API tests --> WS
+    WS --> Pipeline
+    Pipeline --> Rabbit
+    Worker --> Rabbit
+    Worker --> Redis
+    Redis --> Pipeline
+    Pipeline --> WS
+    Pipeline --> SSE
+    Telemetry --> Prom
+    Telemetry --> Jaeger
+    Prom --> Grafana
