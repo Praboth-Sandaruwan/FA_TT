@@ -38,7 +38,7 @@ All tooling is configured via the committed configuration files in the project r
 
 - **Static analysis**: Run `poetry run bandit -r src` locally; the new pre-commit hook also blocks unsafe patterns before they land in git.
 - **Secure defaults**: Strict CORS whitelists and hardened response headers are enabled out of the box. Environment variables such as `ADVANCED_CORS_*` and `ADVANCED_CONTENT_SECURITY_POLICY` let you extend the policy for trusted clients.
-- **GitHub automation**: CodeQL scanning, Dependabot updates, CODEOWNERS, and the pull request template live under the `.github/` directory to enforce consistent reviews.
+- **GitHub automation**: CodeQL scanning, Dependabot updates, CODEOWNERS, and the pull request template live under the `.github/` directory to enforce consistent reviews. CodeQL runs with `build-mode: none` for Python because manual builds are not supported.
 - **Branch protection**: Follow the checklist in [docs/security/hardening.md](docs/security/hardening.md) to require approvals, status checks, and CODEOWNER sign-off before merge.
 
 ## Documentation
